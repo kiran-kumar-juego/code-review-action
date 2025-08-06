@@ -1,0 +1,28 @@
+name: Test Unity Code Review Action
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  test-action:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
+    
+    steps:
+      - name: Checkout test repository
+        uses: actions/checkout@v3
+        with:
+          repository: your-test-unity-project/repo
+          fetch-depth: 0
+      
+      - name: Test Unity Code Review Action
+        uses: ./  # Use local action for testing
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          analyze-all-files: 'true'

@@ -1,0 +1,110 @@
+# Unity Code Review Configuration
+# This file configures the AI-powered code review for Unity projects
+
+# File patterns to analyze
+file_patterns:
+  include:
+    - "Assets/**/*.cs"
+    - "Assets/**/*.js"
+    - "Assets/**/*.ts"
+    - "Assets/**/*.shader"
+    - "ProjectSettings/**"
+  exclude:
+    - "Assets/ThirdParty/**"
+    - "Assets/Plugins/**"
+    - "**/*.Generated.cs"
+    - "Assets/TextMesh Pro/**"
+    - "Assets/AppleAuth/**"
+    - "Assets/CBS/**"
+    - "Assets/Editor Default Resources/**"
+    - "Assets/ExternalDependencyManager/**"
+    - "Assets/FacebookSDK/**"
+    - "Assets/Firebase/**"
+    - "Assets/GeneratedLocalRepo/**"
+    - "Assets/GoogleSignIn/**"
+    - "Assets/Parse/**"
+    - "Assets/StreamingAssets/**"
+    - "Assets/ThirdPartyPlugins/**"
+    - "Assets/GoogleMobileAds/**"
+    - "Assets/PlayFabEditorExtensions/**"
+    - "Assets/Standart Assets/**"
+    - "Assets/Plugins/**"
+    - "Assets/PlayFabSDK/**"
+    - "Assets/AppleAuth/**"
+    - "Assets/Addons/**"
+    - "Assets/JuegoTools/**"
+    - "Assets/MFPS/**"
+
+# Project-specific settings
+project:
+  namespace_prefix: "YourProject"
+  min_unity_version: "2021.3"
+  target_platforms: ["PC", "Mobile", "Console"]
+
+# Rule severity configuration (error, warning, info, disabled)
+rules:
+  performance:
+    expensive_update_operations: "error"
+    repeated_getcomponent: "warning"
+    string_concatenation_loops: "error"
+    find_operations_frequency: "error"
+    instantiate_destroy_loops: "error"
+    
+  naming_conventions:
+    private_field_underscore: "warning"
+    pascal_case_methods: "error"
+    pascal_case_classes: "error"
+    camel_case_variables: "warning"
+    namespace_structure: "info"
+    
+  unity_best_practices:
+    serialize_field_usage: "warning"
+    null_reference_checking: "error"
+    coroutine_lifecycle: "warning"
+    component_caching: "warning"
+    unity_events_usage: "info"
+    
+  code_organization:
+    region_usage: "info"
+    xml_documentation: "info"
+    magic_numbers: "info"
+    access_modifiers: "warning"
+    
+  architecture:
+    interface_usage: "info"
+    singleton_overuse: "warning"
+    tight_coupling: "info"
+
+# Thresholds and limits
+thresholds:
+  file_size_lines: 300
+  method_complexity: 15
+  class_field_count: 20
+  suggest_regions_lines: 100
+  max_getcomponent_calls: 3
+
+# Team-specific conventions
+conventions:
+  required_regions:
+    - "Unity Methods"
+    - "Public Methods"
+    - "Private Methods"
+    - "Properties"
+  
+  naming_patterns:
+    private_fields: "_camelCase"
+    constants: "ALL_CAPS"
+    events: "OnEventName"
+    interfaces: "IInterfaceName"
+
+# Performance monitoring
+performance_monitoring:
+  track_allocations: true
+  check_gc_pressure: true
+  monitor_frame_time: true
+  
+# Code quality metrics
+quality_metrics:
+  calculate_complexity: true
+  track_test_coverage: false
+  measure_maintainability: true

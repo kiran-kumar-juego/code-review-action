@@ -1,0 +1,70 @@
+name: 'Unity Code Review Action'
+description: 'Automated Unity C# code review with AI analysis'
+author: 'Your Name'
+
+branding:
+  icon: 'code'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+  analyze-all-files:
+    description: 'Analyze all C# files in Assets folder (not just changed files)'
+    required: false
+    default: 'false'
+  unity-version:
+    description: 'Unity version to use for analysis'
+    required: false
+    default: '2022.3.0f1'
+  dotnet-version:
+    description: '.NET version to use'
+    required: false
+    default: '6.0.x'
+
+outputs:
+  review-summary:
+    description: 'Summary of the code review results'
+    value: ${{ steps.review.outputs.summary }}
+  issues-found:
+    description: 'Number of issues found'
+    value: ${{ steps.review.outputs.issues-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+      shell: bash
+
+    - name: Cache Unity Library
+      uses: actions/cache@v3
+      with:
+        path: Library
+        key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+        restore-keys: |
+          Library-
+      shell: bash
+
+    - name: Get changed files
+      id: changed-files
+      if: inputs.analyze-all-files != 'true'
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} \
+            | grep -E '\.cs$' | grep '^Assets/' || echo "No C# files changed"
+        fi
+      shell: bash
+
+    - name: Run Unity Code Analysis
+      id: review
+      run: |
+        chmod +x ${{ github.action_path }}/.github/scripts/unity-analyzer.sh
+        ${{ github.action_path }}/.github/scripts/unity-analyzer.sh
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        ANALYZE_ALL_FILES: ${{ inputs.analyze-all-files }}
+      shell: bash
