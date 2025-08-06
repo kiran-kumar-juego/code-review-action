@@ -37,7 +37,7 @@ jobs:
           fetch-depth: 0
       
       - name: Run Unity Code Review
-        uses: your-username/your-repo-name@v1
+        uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -46,7 +46,7 @@ jobs:
 
 ```yaml
 - name: Run Unity Code Review
-  uses: your-username/your-repo-name@v1
+  uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     analyze-all-files: 'true'
