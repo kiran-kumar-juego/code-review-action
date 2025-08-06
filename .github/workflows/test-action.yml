@@ -3,7 +3,7 @@ name: Test Unity Code Review Action
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ master, development ]
 
 jobs:
   test-action:
@@ -16,10 +16,7 @@ jobs:
     
     steps:
       - name: Checkout test repository
-        uses: actions/checkout@v3
-        with:
-          repository: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
-          fetch-depth: 0
+        uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
       
       - name: Test Unity Code Review Action
         uses: ./  # Use local action for testing
