@@ -18,7 +18,7 @@ jobs:
       - name: Checkout test repository
         uses: actions/checkout@v3
         with:
-          repository: your-test-unity-project/repo
+          repository: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
           fetch-depth: 0
       
       - name: Test Unity Code Review Action
