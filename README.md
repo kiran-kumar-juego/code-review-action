@@ -84,7 +84,7 @@ You can use this action in different scenarios:
 
 ```yaml
 - name: Unity Code Review with Custom Settings
-  uses: your-username/your-repo-name@v1
+  uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     analyze-all-files: ${{ github.event_name == 'workflow_dispatch' }}
