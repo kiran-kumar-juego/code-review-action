@@ -9,7 +9,7 @@ branding:
 inputs:
   github-token:
     description: 'GitHub token for API access'
-    required: true
+    required: false
   analyze-all-files:
     description: 'Analyze all C# files in Assets folder (not just changed files)'
     required: false
