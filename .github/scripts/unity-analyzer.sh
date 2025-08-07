@@ -382,7 +382,7 @@ while IFS= read -r file; do
             fi
             
             # Check for Instantiate/Destroy in Update
-            if grep -A 10 -B 2 "Update()" "$file" | grep -n "Instantiate\|Destroy" > /dev/null; then
+            if grep -A 10 -B 2 "Update()" "$file" | grep -n "Instantiate\|Destroy(" > /dev/null; then
                 add_finding "ERROR" "Object Creation/Destruction in Update" \
                     "Creating or destroying objects in Update methods causes performance spikes and garbage collection issues. Consider using object pooling instead." \
                     "$file" "$(grep -n "Update()" "$file" | cut -d: -f1)" "performance" "instantiate_destroy_loops"
