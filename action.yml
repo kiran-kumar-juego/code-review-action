@@ -1,6 +1,6 @@
 name: 'Unity Code Review Action'
 description: 'Automated Unity C# code review with AI analysis'
-author: 'Your Name'
+author: 'kiran.kumar@juegostioz.com'
 
 branding:
   icon: 'code'
@@ -9,7 +9,7 @@ branding:
 inputs:
   github-token:
     description: 'GitHub token for API access'
-    required: false
+    required: true
   analyze-all-files:
     description: 'Analyze all C# files in Assets folder (not just changed files)'
     required: false
