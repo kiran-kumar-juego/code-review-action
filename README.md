@@ -1,6 +1,10 @@
 # Unity Code Review Action
 
-A reusable GitHub Action for automated Unity C# code review with AI analysis.
+A reusable GitHub Action for automated Unity C# code review with AI analysis, designed for internal Gitea repositories.
+
+## 🏢 Gitea Integration
+
+This action is hosted on our internal Gitea server: `https://internal-git.juegostudio.net/git/kirankumar/code-review-action`
 
 ## Features
 
@@ -9,10 +13,13 @@ A reusable GitHub Action for automated Unity C# code review with AI analysis.
 - 📊 Comprehensive reporting on pull requests
 - ⚡ Fast analysis with smart caching
 - 🎯 Focuses on Unity-specific best practices
+- 🏢 **Gitea Compatible** - Works seamlessly with internal Gitea repositories
 
-## Usage
+## Usage with Gitea
 
-### Basic Usage
+Since this action is hosted on an internal Gitea server, you have two main options:
+
+### Option 1: Clone in Workflow (Recommended)
 
 ```yaml
 name: Unity Code Review
@@ -32,14 +39,37 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
+      - name: Get Unity Code Review Action
+        run: |
+          git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+      
       - name: Run Unity Code Review
-        uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
+        uses: ./.github/actions/unity-code-review
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Option 2: Git Submodule
+
+```bash
+# Add as submodule
+git submodule add https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+
+# Then in your workflow:
+- name: Checkout with submodules
+  uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+    submodules: recursive
+
+- name: Run Unity Code Review
+  uses: ./.github/actions/unity-code-review
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ### Advanced Usage

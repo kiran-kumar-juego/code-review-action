@@ -1,0 +1,48 @@
+name: Unity Code Review - Example Usage
+
+on:
+  pull_request:
+    branches: [ master, main, development ]
+    paths:
+      - 'Assets/**/*.cs'
+  workflow_dispatch:
+    inputs:
+      analyze_all_files:
+        description: 'Analyze all C# files'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
+
+    steps:
+      # Checkout the Unity project
+      - name: Checkout Unity Project
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          path: unity-project
+
+      # Checkout the code review action from internal Git
+      - name: Checkout Code Review Action
+        run: |
+          git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git code-review-action
+
+      # Change to Unity project directory
+      - name: Set working directory
+        run: cd unity-project
+
+      # Run the code review action
+      - name: Run Unity Code Review
+        uses: ./code-review-action  # Use the local action
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          analyze-all-files: ${{ github.event.inputs.analyze_all_files || 'false' }}
+          unity-version: '2022.3.0f1'

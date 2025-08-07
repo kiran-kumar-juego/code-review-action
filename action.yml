@@ -54,17 +54,69 @@ runs:
       if: inputs.analyze-all-files != 'true'
       run: |
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} \
-            | grep -E '\.cs$' | grep '^Assets/' || echo "No C# files changed"
+          echo "Getting changed C# files in Assets folder..."
+          
+          # Handle different Git hosting scenarios (GitHub, Gitea, etc.)
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          if [ -z "$BASE_SHA" ] || [ -z "$HEAD_SHA" ]; then
+            echo "Warning: Could not get PR commit SHAs, falling back to merge-base"
+            BASE_SHA=$(git merge-base HEAD~1 HEAD)
+            HEAD_SHA="HEAD"
+          fi
+          
+          echo "Comparing $BASE_SHA...$HEAD_SHA"
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA".."$HEAD_SHA" | grep -E '\.cs$' | grep '^Assets/' || true)
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No C# files changed in Assets folder"
+            echo "changed_files=" >> $GITHUB_OUTPUT
+          else
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+            echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "Not a pull request, will analyze all files if requested"
         fi
       shell: bash
 
     - name: Run Unity Code Analysis
       id: review
       run: |
-        chmod +x ${{ github.action_path }}/.github/scripts/unity-analyzer.sh
-        ${{ github.action_path }}/.github/scripts/unity-analyzer.sh
+        # Find the script location relative to the action
+        SCRIPT_PATH="${{ github.action_path }}/.github/scripts/unity-analyzer.sh"
+        
+        # If action_path is not available (local checkout), try relative path
+        if [ ! -f "$SCRIPT_PATH" ]; then
+          SCRIPT_PATH="./.github/scripts/unity-analyzer.sh"
+        fi
+        
+        # If still not found, try current directory
+        if [ ! -f "$SCRIPT_PATH" ]; then
+          SCRIPT_PATH="./unity-analyzer.sh"
+        fi
+        
+        if [ -f "$SCRIPT_PATH" ]; then
+          echo "Found script at: $SCRIPT_PATH"
+          chmod +x "$SCRIPT_PATH"
+          "$SCRIPT_PATH"
+        else
+          echo "Error: Could not find unity-analyzer.sh script"
+          echo "Searched in:"
+          echo "  - ${{ github.action_path }}/.github/scripts/unity-analyzer.sh"
+          echo "  - ./.github/scripts/unity-analyzer.sh"
+          echo "  - ./unity-analyzer.sh"
+          ls -la . || true
+          ls -la .github/ || true
+          ls -la .github/scripts/ || true
+          exit 1
+        fi
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         ANALYZE_ALL_FILES: ${{ inputs.analyze-all-files }}
+        CHANGED_FILES: ${{ steps.changed-files.outputs.changed_files }}
       shell: bash

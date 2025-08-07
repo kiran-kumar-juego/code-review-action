@@ -1,0 +1,144 @@
+name: Unity Code Review for Gitea
+
+# This workflow is optimized for Gitea repositories
+# Place this file in .github/workflows/ of your Unity project
+
+on:
+  pull_request:
+    branches: [ master, main, development, release/** ]
+    paths:
+      - 'Assets/**/*.cs'
+      - 'Packages/**/*.cs'  # Include package scripts if needed
+  
+  workflow_dispatch:
+    inputs:
+      analyze_all_files:
+        description: 'Analyze all C# files in the project'
+        required: false
+        default: false
+        type: boolean
+      target_branch:
+        description: 'Target branch for analysis (leave empty for current)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  unity-code-review:
+    runs-on: ubuntu-latest
+    
+    # Permissions needed for Gitea integration
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
+      actions: read
+    
+    steps:
+      # Step 1: Checkout the Unity project
+      - name: Checkout Unity Project
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for proper diff analysis
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Step 2: Setup Git configuration for Gitea (if needed)
+      - name: Configure Git for Gitea
+        run: |
+          git config --global user.name "Unity Code Review Bot"
+          git config --global user.email "code-review@juegostudio.net"
+          
+          # Show current repository info for debugging
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR Base: ${{ github.event.pull_request.base.ref }}"
+            echo "PR Head: ${{ github.event.pull_request.head.ref }}"
+          fi
+      
+      # Step 3: Clone the code review action from Gitea
+      - name: Setup Code Review Action from Gitea
+        run: |
+          echo "Cloning code review action from Gitea..."
+          
+          # Create the actions directory
+          mkdir -p .github/actions
+          
+          # Clone the action repository
+          git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+          
+          # Verify the action was cloned successfully
+          if [ -f ".github/actions/unity-code-review/action.yml" ]; then
+            echo "✅ Code review action cloned successfully"
+            ls -la .github/actions/unity-code-review/
+          else
+            echo "❌ Failed to clone code review action"
+            exit 1
+          fi
+        env:
+          # Use token if repository is private
+          GIT_TOKEN: ${{ secrets.GITEA_TOKEN }}
+      
+      # Step 4: Validate Unity project structure
+      - name: Validate Unity Project
+        run: |
+          echo "Validating Unity project structure..."
+          
+          # Check for Unity project files
+          if [ ! -f "ProjectSettings/ProjectVersion.txt" ]; then
+            echo "⚠️  Warning: This doesn't appear to be a Unity project"
+            echo "   Missing ProjectSettings/ProjectVersion.txt"
+          else
+            echo "✅ Unity project detected"
+            cat ProjectSettings/ProjectVersion.txt
+          fi
+          
+          # Check for C# files in Assets
+          CS_FILES=$(find Assets -name "*.cs" 2>/dev/null | wc -l || echo "0")
+          echo "Found $CS_FILES C# files in Assets folder"
+          
+          if [ "$CS_FILES" -eq "0" ]; then
+            echo "⚠️  Warning: No C# files found in Assets folder"
+          fi
+      
+      # Step 5: Run the Unity Code Review
+      - name: Run Unity Code Review Analysis
+        uses: ./.github/actions/unity-code-review
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          analyze-all-files: ${{ github.event.inputs.analyze_all_files || 'false' }}
+          unity-version: '2022.3.0f1'  # Adjust to your Unity version
+          dotnet-version: '6.0.x'
+        env:
+          # Additional environment variables for Gitea
+          GITEA_SERVER_URL: 'https://internal-git.juegostudio.net'
+          GITEA_REPOSITORY: ${{ github.repository }}
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+      
+      # Step 6: Upload analysis results (optional)
+      - name: Upload Review Results
+        uses: actions/upload-artifact@v3
+        if: always()  # Run even if previous steps failed
+        with:
+          name: unity-code-review-results
+          path: |
+            code-review-report.md
+            code-review-summary.json
+          retention-days: 30
+      
+      # Step 7: Post summary comment (for pull requests)
+      - name: Post Review Summary
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Code review completed for PR #${{ github.event.pull_request.number }}"
+          
+          # The actual comment posting is handled by the unity-analyzer.sh script
+          # This step is just for logging
+          
+          if [ -f "code-review-summary.json" ]; then
+            echo "📊 Review summary generated"
+            cat code-review-summary.json
+          fi
