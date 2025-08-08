@@ -912,14 +912,14 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for design patterns and architecture
 echo "Checking for design patterns and architecture..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check for interface usage and polymorphism
         if grep -n "class.*:" "$file" > /dev/null; then
             if ! grep -n "interface\|abstract" "$file" > /dev/null; then
                 add_finding "INFO" "Design Patterns - Interface Usage" \
                     "Consider implementing interfaces for better decoupling and polymorphism. This improves scalability and testability." \
-                    "$file"
+                    "$file" "" "code_organization" "interface_usage"
             fi
         fi
         
@@ -928,7 +928,7 @@ while IFS= read -r -d '' file; do
             if ! grep -n "event\|delegate" "$file" > /dev/null; then
                 add_finding "INFO" "Design Patterns - Events" \
                     "Consider using events and delegates for decoupling. This helps achieve better architecture and reduces dependencies." \
-                    "$file"
+                    "$file" "" "code_organization" "event_usage"
             fi
         fi
         
@@ -936,15 +936,15 @@ while IFS= read -r -d '' file; do
         if grep -n -i "singleton\|instance.*static" "$file" > /dev/null; then
             add_finding "WARNING" "Design Pattern - Singleton Usage" \
                 "Singleton pattern detected. Ensure this is necessary as it can make testing difficult and create tight coupling." \
-                "$file"
-            fi
+                "$file" "" "design_patterns" "singleton_usage"
+        fi
         
         # Check for proper use of MonoBehaviour inheritance
         if grep -n "class.*MonoBehaviour" "$file" > /dev/null; then
             if ! grep -n "void.*Update\|void.*Start\|void.*Awake" "$file" > /dev/null; then
                 add_finding "INFO" "MonoBehaviour Usage" \
                     "Class inherits from MonoBehaviour but doesn't use Unity lifecycle methods. Consider using regular C# class if Unity features aren't needed." \
-                    "$file"
+                    "$file" "" "unity_best_practices" "monobehaviour_usage"
             fi
         fi
     fi

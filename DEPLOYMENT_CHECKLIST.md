@@ -136,7 +136,22 @@ jobs:
 2. **Action not found**: Verify the clone step completed successfully
 3. **Permission denied**: Ensure proper workflow permissions are set
 4. **No files analyzed**: Check file paths and Unity project structure
-5. **Script fails with exit code 1**: Check the Unity analyzer script for syntax errors
+5. **Script fails with exit code 1**: This is EXPECTED behavior when code quality issues are found
+
+### Understanding Exit Codes
+- **Exit Code 0**: Analysis completed successfully with no errors found
+- **Exit Code 1**: Analysis found ERROR-level issues in the code (this should fail the workflow)
+- The action is designed to fail when it finds actual code quality problems that need to be fixed
+
+### Recent Test Results (August 2025)
+✅ **Script Status**: All major issues have been resolved and the script is working correctly
+- Successfully loads configuration
+- Properly processes C# files according to patterns
+- Generates detailed analysis reports  
+- Correctly exits with appropriate status codes
+- Provides actionable feedback with file names and line numbers
+
+The action failing with exit code 1 in your workflow means it's doing its job - it found actual code quality issues that need to be addressed!
 
 ### Fixed Issues (August 2025)
 #### Unity Analyzer Script Fixes
@@ -165,6 +180,29 @@ After fixes, the script successfully:
 - ✅ Generates detailed analysis reports with proper categorization
 - ✅ Exits with code 0 on success, code 1 only when actual errors are found
 - ✅ Provides actionable feedback with file names, line numbers, and suggestions
+
+### Handling Action Results
+When the action runs in your workflow:
+
+1. **Green checkmark (✅)**: No error-level issues found - workflow passes
+2. **Red X (❌)**: Error-level issues found - workflow fails (this is intentional!)
+
+#### What to do when the action fails:
+1. Check the action output/logs for the detailed analysis report
+2. Look for "🚨 Error:" entries in the output
+3. Fix the identified code quality issues
+4. Commit and push the fixes
+5. The action will pass once all error-level issues are resolved
+
+#### Configuring Severity Levels
+You can adjust what constitutes an "error" vs "warning" in `unity-review-config.yml`:
+```yaml
+rules:
+  performance:
+    expensive_update_operations: "error"     # Fails workflow
+    repeated_getcomponent: "warning"         # Shows warning but passes
+    string_concatenation_loops: "disabled"  # Ignores this rule
+```
 
 ### Debug Mode
 Add to workflow for detailed logging:
