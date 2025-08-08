@@ -33,7 +33,7 @@ jobs:
       # Checkout the code review action from internal Git
       - name: Checkout Code Review Action
         run: |
-          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git code-review-action
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git@development code-review-action
 
       # Change to Unity project directory
       - name: Set working directory
