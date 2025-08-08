@@ -1,0 +1,41 @@
+name: Unity Code Review - Sample Project
+
+on:
+  pull_request:
+    paths: 
+      - 'Assets/**/*.cs'
+  push:
+    branches: [ main, master ]
+    paths: 
+      - 'Assets/**/*.cs'
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Get Unity Code Review Action
+        run: |
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
+          
+      - name: Run Unity Code Analysis
+        uses: ./.github/actions/unity-code-review
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Upload Analysis Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: unity-code-review-report
+          path: unity-analysis-report.md
+          retention-days: 30
