@@ -33,7 +33,7 @@ jobs:
       # Checkout the code review action from internal Git
       - name: Checkout Code Review Action
         run: |
-          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git@development code-review-action
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git@development
 
       # Change to Unity project directory
       - name: Set working directory
@@ -43,6 +43,6 @@ jobs:
       - name: Run Unity Code Review
         uses: ./code-review-action  # Use the local action
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.TOKEN }}
           analyze-all-files: ${{ github.event.inputs.analyze_all_files || 'false' }}
           unity-version: '2022.3.0f1'
