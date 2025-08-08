@@ -98,8 +98,19 @@ get_threshold() {
 if [ -f "$CONFIG_FILE" ]; then
     echo "📋 Loading configuration from: $CONFIG_FILE"
     
-    # Get namespace prefix
-    NAMESPACE_PREFIX=$(parse_yaml "$CONFIG_FILE" "namespace_prefix")
+    # Get namespace prefix  
+    NAMESPACE_PREFIX=$(awk '
+    BEGIN { found_project=0 }
+    /^project:/ { found_project=1; next }
+    found_project && /^  namespace_prefix:/ { 
+        gsub(/^  namespace_prefix:[[:space:]]*/, ""); 
+        gsub(/"/, ""); 
+        gsub(/'\''/, "");
+        print; 
+        exit 
+    }
+    found_project && /^[a-zA-Z]/ { found_project=0 }
+    ' "$CONFIG_FILE")
     NAMESPACE_PREFIX=${NAMESPACE_PREFIX:-"YourProject"}
     
     # Get thresholds
@@ -448,7 +459,7 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for coroutine best practices
 echo "Checking coroutine usage..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         if grep -n "StartCoroutine\|IEnumerator" "$file" > /dev/null; then
             # Check for proper coroutine stopping
@@ -462,7 +473,7 @@ while IFS= read -r -d '' file; do
             if grep -n "yield return null" "$file" > /dev/null; then
                 add_finding "INFO" "Coroutine Optimization" \
                     "Consider using 'yield return WaitForEndOfFrame()' or 'yield return WaitForFixedUpdate()' instead of 'yield return null' for more explicit timing control." \
-                    "$file"
+                    "$file" "" "unity_best_practices" "coroutine_optimization"
             fi
         fi
     fi
@@ -470,14 +481,14 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for Unity Events usage
 echo "Checking Unity Events usage..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check for delegate usage that could be Unity Events
         if grep -n "delegate\|event.*Action\|event.*Func" "$file" > /dev/null; then
             if ! grep -n "UnityEvent" "$file" > /dev/null; then
                 add_finding "INFO" "Unity Events Suggestion" \
                     "Consider using UnityEvent instead of C# delegates for inspector-configurable events and better Unity integration." \
-                    "$file"
+                    "$file" "" "unity_best_practices" "unity_events_usage"
             fi
         fi
     fi
@@ -485,7 +496,7 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for magic numbers
 echo "Checking for magic numbers..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check for magic numbers (but exclude constants and common Unity values)
         if grep -n '\b[3-9]\b\|\b[1-9][0-9]\+\b' "$file" | grep -v "0f\|1f\|2f\|-1f\|const\|readonly\|= [0-9]\+\.[0-9]*f" > /dev/null; then
@@ -494,7 +505,7 @@ while IFS= read -r -d '' file; do
             if [ ! -z "$magic_lines" ]; then
                 add_finding "INFO" "Magic Numbers Detected" \
                     "Consider replacing magic numbers with named constants or configurable variables for better maintainability." \
-                    "$file"
+                    "$file" "" "maintainability" "magic_numbers"
             fi
         fi
     fi
@@ -502,7 +513,7 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for namespace usage
 echo "Checking for namespace usage..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check if file contains classes but no namespace
         if grep -n "class\|struct\|interface\|enum" "$file" > /dev/null; then
@@ -519,7 +530,7 @@ while IFS= read -r -d '' file; do
             if grep -n "namespace [a-z]" "$file" > /dev/null; then
                 add_finding "INFO" "Namespace Naming Convention" \
                     "Namespace should follow PascalCase naming convention (e.g., 'MyProject.Scripts' instead of 'myproject.scripts')." \
-                    "$file"
+                    "$file" "" "naming_conventions" "namespace_naming"
             fi
         fi
     fi
@@ -527,7 +538,7 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for region usage and organization
 echo "Checking for region organization..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         lines=$(wc -l < "$file" 2>/dev/null || echo "0")
         lines=$(echo "$lines" | head -1)  # Take first line only
@@ -537,7 +548,7 @@ while IFS= read -r -d '' file; do
             if ! grep -n "#region\|#endregion" "$file" > /dev/null; then
                 add_finding "INFO" "Consider Using Regions" \
                     "For larger scripts ($lines lines), consider using #region blocks to organize code sections (e.g., Unity Methods, Public Methods, Private Methods, Properties, etc.)." \
-                    "$file"
+                    "$file" "" "code_organization" "region_usage"
             fi
         fi
         
@@ -550,14 +561,14 @@ while IFS= read -r -d '' file; do
         if [ "$region_count" -ne "$endregion_count" ] 2>/dev/null; then
             add_finding "WARNING" "Unmatched Region Blocks" \
                 "Found $region_count #region statements but $endregion_count #endregion statements. Ensure all regions are properly closed." \
-                "$file"
+                "$file" "" "code_organization" "region_matching"
         fi
     fi
 done < "$FILES_TO_ANALYZE"
 
 # Check for XML documentation on public methods (non-MonoBehaviour)
 echo "Checking for method documentation..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check for public methods without XML documentation
         while IFS= read -r line_num; do
@@ -595,7 +606,7 @@ while IFS= read -r -d '' file; do
                     if [ ! -z "$method_name" ]; then
                         add_finding "INFO" "Missing Method Documentation" \
                             "Public method '$method_name' at line $line_num lacks XML documentation. Consider adding /// <summary> documentation for better code maintainability and IntelliSense support." \
-                            "$file" "$line_num"
+                            "$file" "$line_num" "documentation" "method_documentation"
                     fi
                 fi
             fi
@@ -605,7 +616,7 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for detailed coding conventions and naming standards
 echo "Checking coding conventions and naming standards..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check for proper variable naming conventions
         # Local variables should start with lowercase (but skip properties and interface members)
@@ -628,7 +639,7 @@ while IFS= read -r -d '' file; do
 **Current:** \`$(echo "$line_content" | xargs)\`
 **Suggested:** \`$(echo "$line_content" | sed "s/$var_name/$suggested_name/" | xargs)\`
 **Convention:** Local variables should use camelCase (e.g., playerHealth, currentSpeed, isActive)" \
-                    "$file" "$line_num"
+                    "$file" "$line_num" "naming_conventions" "variable_naming"
             fi
         done < <(grep -n "^\s*\(int\|float\|bool\|string\|double\) [A-Z]" "$file" | grep -v -E "\{\s*(get|set)" | cut -d: -f1)
         
@@ -650,7 +661,7 @@ while IFS= read -r -d '' file; do
 **Suggested:** \`$(echo "$suggested_line" | xargs)\`
 **Convention:** Private fields should use _camelCase (e.g., _playerHealth, _moveSpeed)
 **Fix:** Change '$var_name' to '$suggested_name'" \
-                            "$file" "$line_num"
+                            "$file" "$line_num" "naming_conventions" "private_field_naming"
                     fi
                 fi
             fi
@@ -669,7 +680,7 @@ while IFS= read -r -d '' file; do
 **Current:** \`$line_content\`
 **Suggested:** \`$(echo "$line_content" | sed "s/$const_name/$suggested_name/")\`
 **Convention:** Constants should use ALL_CAPS_WITH_UNDERSCORES (e.g., MAX_HEALTH, DEFAULT_SPEED)" \
-                        "$file" "$line_num"
+                        "$file" "$line_num" "naming_conventions" "constant_naming"
                 fi
             fi
         done < <(grep -n "const.*[a-z]" "$file" | cut -d: -f1)
@@ -689,7 +700,7 @@ while IFS= read -r -d '' file; do
 **Current:** \`$(echo "$line_content" | xargs)\`
 **Suggested:** \`$(echo "$line_content" | sed "s/$method_name/$suggested_name/" | xargs)\`
 **Convention:** Methods should use PascalCase (e.g., GetHealth, CalculateDamage, InitializePlayer)" \
-                            "$file" "$line_num"
+                            "$file" "$line_num" "naming_conventions" "method_naming"
                     fi
                 fi
             fi
@@ -708,7 +719,7 @@ while IFS= read -r -d '' file; do
 **Current:** \`$(echo "$line_content" | xargs)\`
 **Suggested:** \`$(echo "$line_content" | sed "s/$prop_name/$suggested_name/" | xargs)\`
 **Convention:** Properties should use PascalCase (e.g., Health, IsAlive, MaxSpeed)" \
-                        "$file" "$line_num"
+                        "$file" "$line_num" "naming_conventions" "property_naming"
                 fi
             fi
         done < <(grep -n -E "\s+[a-z][a-zA-Z0-9]*\s*\{\s*(get|set)" "$file" | cut -d: -f1)
@@ -728,7 +739,7 @@ while IFS= read -r -d '' file; do
 **Suggested:** \`$(echo "$line_content" | sed "s/interface $interface_name/interface $suggested_name/" | xargs)\`
 **Convention:** Interfaces must use IPascalCase (e.g., IWeapon, IHealthSystem, IMoveable)
 **Why:** This clearly identifies interfaces and follows Microsoft C# guidelines." \
-                            "$file" "$line_num" "naming_conventions" "pascal_case_classes"
+                            "$file" "$line_num" "naming_conventions" "interface_naming"
                     fi
                 fi
             fi
@@ -751,7 +762,7 @@ while IFS= read -r -d '' file; do
 **Current:** \`$(echo "$line_content" | xargs)\`
 **Suggested:** \`$(echo "$line_content" | sed "s/class $class_name/class $suggested_name/" | xargs)\`
 **Convention:** Classes should use PascalCase (e.g., PlayerController, HealthSystem, WeaponManager)" \
-                        "$file" "$line_num"
+                        "$file" "$line_num" "naming_conventions" "class_naming"
                 fi
             fi
         done < <(grep -n "class.*[a-z]" "$file" | grep -v "^\s*///" | cut -d: -f1)
@@ -766,7 +777,7 @@ while IFS= read -r -d '' file; do
                 if echo "$next_line" | grep "public" > /dev/null; then
                     add_finding "WARNING" "SerializeField Access Modifier" \
                         "SerializeField at line $line_num should be used with private fields, not public. Make the field private for better encapsulation." \
-                        "$file" "$line_num"
+                        "$file" "$line_num" "unity_best_practices" "serialize_field_access"
                 fi
             fi
         done < <(grep -n "\[SerializeField\]" "$file" | cut -d: -f1)
@@ -775,7 +786,7 @@ while IFS= read -r -d '' file; do
         if grep -n "public.*=" "$file" > /dev/null; then
             add_finding "INFO" "Access Modifier Usage" \
                 "Consider using appropriate access modifiers: public for button callbacks, internal for cross-script module access, protected for inheritance, private for same script access." \
-                "$file"
+                "$file" "" "code_organization" "access_modifiers"
         fi
         
         # Check for Unity-specific naming patterns
@@ -791,7 +802,7 @@ while IFS= read -r -d '' file; do
 **Current:** \`$(echo "$line_content" | xargs)\`
 **Suggested:** \`$(echo "$line_content" | sed "s/$event_name/$suggested_name/" | xargs)\`
 **Convention:** Events should use OnPascalCase (e.g., OnPlayerDeath, OnHealthChanged, OnLevelComplete)" \
-                        "$file" "$line_num"
+                        "$file" "$line_num" "naming_conventions" "event_naming"
                 fi
             fi
         done < <(grep -n -E "(Action|UnityEvent)" "$file" | cut -d: -f1)
@@ -815,7 +826,7 @@ while IFS= read -r -d '' file; do
 **Current parameter:** \`$param\`
 **Suggested:** \`$(echo "$param" | sed "s/$param_name/$suggested_name/")\`
 **Convention:** Method parameters should use camelCase (e.g., playerHealth, targetPosition)" \
-                                    "$file" "$line_num"
+                                    "$file" "$line_num" "naming_conventions" "parameter_naming"
                             fi
                         fi
                     done
@@ -863,7 +874,7 @@ while IFS= read -r -d '' file; do
 **Suggested names for $context_type:** $suggestions
 **Convention:** Use descriptive names that clearly indicate the variable's purpose
 **Example:** Instead of 'int x = 100;' use 'int maxHealth = 100;'" \
-                        "$file" "$line_num"
+                        "$file" "$line_num" "naming_conventions" "meaningful_names"
                 fi
             fi
         done < <(grep -n -E "\s+[a-zA-Z]\s*=" "$file" | cut -d: -f1)
@@ -872,7 +883,7 @@ done < "$FILES_TO_ANALYZE"
 
 # Check for namespace structure and organization
 echo "Checking namespace structure and organization..."
-while IFS= read -r -d '' file; do
+while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check for nested namespace structure
         if grep -n "namespace" "$file" > /dev/null; then
@@ -883,7 +894,7 @@ while IFS= read -r -d '' file; do
             if [[ "$namespace_name" != *.* ]]; then
                 add_finding "INFO" "Namespace Structure" \
                     "Consider using nested namespace structure like 'ProjectName.ModuleName' (e.g., 'PB.Player', 'PB.UI'). Current namespace: '$namespace_name'" \
-                    "$file"
+                    "$file" "" "code_organization" "namespace_structure"
             fi
             
             # Check if namespace reflects folder structure
@@ -892,7 +903,7 @@ while IFS= read -r -d '' file; do
                 if ! echo "$namespace_name" | grep -i "$folder_path" > /dev/null; then
                     add_finding "INFO" "Namespace Folder Alignment" \
                         "Namespace '$namespace_name' should reflect folder structure. Consider aligning with folder path: '$folder_path'" \
-                        "$file"
+                        "$file" "" "code_organization" "namespace_alignment"
                 fi
             fi
         fi

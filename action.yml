@@ -1,6 +1,6 @@
 name: 'Unity Code Review Action'
 description: 'Automated Unity C# code review with AI analysis'
-author: 'kiran.kumar@juegostioz.com'
+author: 'kiran.kumar@juegostudioz.com'
 
 branding:
   icon: 'code'

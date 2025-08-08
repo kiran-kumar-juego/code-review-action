@@ -136,6 +136,35 @@ jobs:
 2. **Action not found**: Verify the clone step completed successfully
 3. **Permission denied**: Ensure proper workflow permissions are set
 4. **No files analyzed**: Check file paths and Unity project structure
+5. **Script fails with exit code 1**: Check the Unity analyzer script for syntax errors
+
+### Fixed Issues (August 2025)
+#### Unity Analyzer Script Fixes
+The following issues were identified and resolved in the Unity analyzer script:
+
+1. **Input Delimiter Issue**: Fixed multiple `while` loops that were using `-d ''` (null delimiter) when reading newline-delimited files
+   - **Files affected**: Lines using `while IFS= read -r -d '' file`
+   - **Fix**: Changed to `while IFS= read -r file` for proper newline handling
+
+2. **Missing Rule Category Parameters**: Added missing rule category and rule name parameters to `add_finding` calls
+   - **Issue**: Many `add_finding` calls were missing the required 6th and 7th parameters
+   - **Fix**: Added appropriate rule categories like "naming_conventions", "performance", "unity_best_practices", etc.
+
+3. **YAML Parsing Issue**: Fixed namespace_prefix parsing from nested YAML structure
+   - **Issue**: `parse_yaml` function couldn't handle nested YAML keys under `project:` section
+   - **Fix**: Implemented proper AWK-based parsing for nested YAML values
+
+4. **Duplicate Loop Processing**: Removed duplicate `done < "$FILES_TO_ANALYZE"` lines
+   - **Issue**: Some sections had duplicate loop endings causing script errors
+   - **Fix**: Cleaned up duplicate lines and ensured proper loop structure
+
+#### Script Testing Results
+After fixes, the script successfully:
+- ✅ Loads configuration from `unity-review-config.yml`
+- ✅ Processes C# files according to include/exclude patterns
+- ✅ Generates detailed analysis reports with proper categorization
+- ✅ Exits with code 0 on success, code 1 only when actual errors are found
+- ✅ Provides actionable feedback with file names, line numbers, and suggestions
 
 ### Debug Mode
 Add to workflow for detailed logging:
@@ -149,4 +178,4 @@ env:
 - **Repository**: https://internal-git.juegostudio.net/git/kirankumar/code-review-action
 - **Issues**: Create issues in the Gitea repository
 - **Documentation**: Check README.md and QUICK_SETUP.md
-- **Contact**: kiran.kumar@juegostioz.com
+- **Contact**: kiran.kumar@juegostudioz.com
