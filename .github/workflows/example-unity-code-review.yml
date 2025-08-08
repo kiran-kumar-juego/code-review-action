@@ -25,8 +25,7 @@ jobs:
           
       - name: Get Unity Code Review Action
         run: |
-          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git@development .github/actions/unity-code-review
-          
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git
       - name: Run Unity Code Analysis
         uses: ./.github/actions/unity-code-review
         with:
