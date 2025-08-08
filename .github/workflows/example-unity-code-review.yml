@@ -8,6 +8,13 @@ on:
     branches: [ main, master, development ]
     paths: 
       - 'Assets/**/*.cs'
+  workflow_dispatch:
+    inputs:
+      analyze_all_files:
+        description: 'Analyze all C# files in Assets folder (not just changed files)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   code-review:
