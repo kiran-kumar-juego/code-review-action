@@ -27,7 +27,7 @@ git add .
 git commit -m "Initial Unity code review action"
 
 # Add Gitea remote
-git remote add origin https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git
+git remote add origin https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git
 
 # Push to master/main branch
 git push -u origin master
@@ -48,7 +48,7 @@ git push origin v1
 ```bash
 # Clone in a test Unity project
 cd /path/to/test-unity-project
-git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
 
 # Create test workflow and push
 ```
@@ -102,10 +102,10 @@ Teams can add this to their Unity projects with:
 # Method 1: Direct clone in workflow
 # Add this step to .github/workflows/unity-review.yml:
 - name: Get code review action
-  run: git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+  run: git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
 
 # Method 2: As submodule
-git submodule add https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+git submodule add https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
 ```
 
 ### Workflow Template
@@ -123,7 +123,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - run: git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+      - run: git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
       - uses: ./.github/actions/unity-code-review
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

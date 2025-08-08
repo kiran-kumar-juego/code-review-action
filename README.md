@@ -45,7 +45,7 @@ jobs:
       
       - name: Get Unity Code Review Action
         run: |
-          git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
       
       - name: Run Unity Code Review
         uses: ./.github/actions/unity-code-review
@@ -57,7 +57,7 @@ jobs:
 
 ```bash
 # Add as submodule
-git submodule add https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+git submodule add https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
 
 # Then in your workflow:
 - name: Checkout with submodules

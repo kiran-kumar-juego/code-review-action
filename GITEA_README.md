@@ -18,7 +18,7 @@ A reusable GitHub Action for automated Unity C# code review with AI analysis, sp
 1. **Add this action as a submodule in your Unity project:**
    ```bash
    cd your-unity-project
-   git submodule add https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+   git submodule add https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
    ```
 
 2. **Create a workflow file** in your Unity project (`.github/workflows/code-review.yml`):
@@ -93,7 +93,7 @@ jobs:
 
       - name: Clone Code Review Action from Gitea
         run: |
-          git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
         env:
           GIT_TOKEN: ${{ secrets.GITEA_TOKEN }}  # If authentication needed
 

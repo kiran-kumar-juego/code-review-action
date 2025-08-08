@@ -68,7 +68,7 @@ jobs:
           mkdir -p .github/actions
           
           # Clone the action repository
-          git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
           
           # Verify the action was cloned successfully
           if [ -f ".github/actions/unity-code-review/action.yml" ]; then

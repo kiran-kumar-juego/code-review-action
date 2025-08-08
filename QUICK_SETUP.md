@@ -7,7 +7,7 @@ Choose one of these methods:
 ### Method A: As a Submodule (Recommended)
 ```bash
 cd your-unity-project
-git submodule add https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+git submodule add https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
 git commit -m "Add Unity code review action"
 ```
 
@@ -49,7 +49,7 @@ jobs:
       # If using Method B (direct clone), use this:
       - name: Clone code review action
         run: |
-          git clone https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+          git clone https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
 
       - name: Run Unity Code Review
         uses: ./.github/actions/unity-code-review

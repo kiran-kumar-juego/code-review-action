@@ -6,7 +6,7 @@ If you're using an internal Git server and want to include this action in your U
 
 1. **Add the action as a submodule in your Unity project:**
    ```bash
-   git submodule add https://internal-git.juegostudio.net/git/kirankumar/code-review-action.git .github/actions/unity-code-review
+   git submodule add https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
    ```
 
 2. **Create a workflow in your Unity project** (`.github/workflows/code-review.yml`):
