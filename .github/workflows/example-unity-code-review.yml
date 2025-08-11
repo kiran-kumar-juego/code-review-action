@@ -46,72 +46,67 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Code Review Action
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep '\.cs$' | head -20 > changed_files.txt || echo "No C# files changed in PR" > changed_files.txt
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            git diff --name-only HEAD~1 HEAD | grep '\.cs$' | head -20 > changed_files.txt || echo "No C# files changed in push" > changed_files.txt
+          else
+            if [ "${{ github.event.inputs.analyze_all_files }}" = "true" ]; then
+              find ./Assets -name "*.cs" -type f | head -50 > changed_files.txt || echo "Assets/**/*.cs" > changed_files.txt
+            else
+              find ./Assets -name "*.cs" -type f -mtime -7 2>/dev/null | head -20 > changed_files.txt || find ./Assets -name "*.cs" -type f | head -10 > changed_files.txt || echo "Assets/**/*.cs" > changed_files.txt
+            fi
+          fi
+          
+          # Set outputs
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          cat changed_files.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "all_changed_files=$(cat changed_files.txt | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')" >> $GITHUB_OUTPUT
+
+      - name: Setup and Prepare Environment
         env:
           TOKEN: ${{ secrets.TOKEN }}
         run: |
           mkdir -p ./.github/actions/code-review-action
           
-          # Define the source repository for the code review action
           CODE_REVIEW_REPO="https://internal-git.juegostudio.net/git/UnityProjects/code-review-action"
           BRANCH="development"
-          
           SUCCESS=false
 
-          # Try with TOKEN authentication (API endpoints)
           if [ "$SUCCESS" = false ] && [ -n "${TOKEN}" ]; then
-            echo "� Method 2: Trying with TOKEN authentication..."
-            
-            # Test if token works
             if curl -sL -H "Authorization: token ${TOKEN}" \
                  "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action" \
                  -o test-response.json; then
               if grep -q '"name".*"code-review-action"' test-response.json 2>/dev/null; then
-                echo "  ✅ Token authentication works"
                 rm -f test-response.json
                 
                 for endpoint in \
                   "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.tar.gz" \
                   "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.zip"; do
-                  echo "  Trying: $endpoint"
                   if curl -sL -H "Authorization: token ${TOKEN}" "$endpoint" -o temp-action.archive; then
                     if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
-                      echo "  ✅ Successfully downloaded with TOKEN"
                       SUCCESS=true
                       break
-                    else
-                      echo "  ❌ Invalid archive format"
                     fi
-                  else
-                    echo "  ❌ Download failed"
                   fi
                   rm -f temp-action.archive
                 done
-              else
-                echo "  ❌ Token authentication failed"
               fi
-            else
-              echo "  ❌ Cannot test token authentication"
             fi
             rm -f test-response.json
           fi
 
-
-          # Check if we succeeded
+          # Check if download succeeded
           if [ "$SUCCESS" = false ]; then
-            echo "❌ All download methods failed. Please check:"
-            echo "   1. Repository exists: $CODE_REVIEW_REPO"
-            echo "   2. Branch '$BRANCH' exists"
-            echo "   3. TOKEN secret is set with appropriate permissions"
-            echo "   4. Network connectivity to internal-git.juegostudio.net"
-            echo ""
-            echo "Available environment variables:"
-            echo "   TOKEN is set: $([ -n "${TOKEN}" ] && echo "yes" || echo "no")"
-            echo "   TOKEN is set: $([ -n "${TOKEN}" ] && echo "yes" || echo "no")"
+            echo "All download methods failed. Check repository access and TOKEN permissions."
             exit 1
           fi
 
-          # Extract the downloaded archive
+          # Extract archive
           mkdir -p temp-extract
           
           if file temp-action.archive | grep -q "gzip\|tar"; then
@@ -119,11 +114,11 @@ jobs:
           elif file temp-action.archive | grep -q "Zip"; then
             unzip -q temp-action.archive -d temp-extract
           else
-            echo "❌ Unknown archive format"
+            echo "Unknown archive format"
             exit 1
           fi
           
-          # Copy files to the action directory
+          # Copy files to action directory
           MAIN_DIR=$(find temp-extract -mindepth 1 -maxdepth 1 -type d | head -1)
           
           if [ -n "$MAIN_DIR" ]; then
@@ -137,46 +132,30 @@ jobs:
           # Cleanup
           rm -rf temp-action.* temp-extract
 
-          # Set executable permissions
-          echo "🔧 Setting executable permissions..."
+          # Set permissions and verify
           find ./.github/actions/code-review-action -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
 
-          # Verify the action was downloaded correctly
-          if [ -f "./.github/actions/code-review-action/action.yml" ]; then
-            echo "✅ Code review action set up successfully"
-          else
-            echo "❌ Action setup failed - action.yml not found"
+          if [ ! -f "./.github/actions/code-review-action/action.yml" ]; then
+            echo "Action setup failed - action.yml not found"
             exit 1
           fi
 
-      - name: Prepare Analysis Environment
-        run: |
-          echo "🔧 Preparing analysis environment..."
-          
-          # Ensure we have files to analyze
+          # Prepare analysis environment
           if [ ! -f "changed_files.txt" ] || [ ! -s "changed_files.txt" ]; then
-            echo "⚠️ No changed files detected, creating default file list"
             find ./Assets -name "*.cs" -type f | head -10 > changed_files.txt
           fi
           
-          # Create any required environment files
-          echo "ANALYZE_ALL_FILES=${{ github.event.inputs.analyze_all_files || 'false' }}" > .env
-          echo "EVENT_NAME=${{ github.event_name }}" >> .env
-          echo "REPO_NAME=${{ github.repository }}" >> .env
-          
-          # Ensure the action has executable permissions
-          find ./.github/actions/code-review-action -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
-          
-          echo "✅ Analysis environment prepared"
-          echo "� Files to analyze: $(wc -l < changed_files.txt)"
+          # Create environment file
+          cat > .env << EOF
+          ANALYZE_ALL_FILES=${{ github.event.inputs.analyze_all_files || 'false' }}
+          EVENT_NAME=${{ github.event_name }}
+          REPO_NAME=${{ github.repository }}
+          EOF
 
       - name: Run Unity Code Analysis
         id: analysis
         run: |
-          echo "🚀 Running Unity Code Analysis..."
-          echo "Current directory: $(pwd)"
-          echo "Analysis method: Direct script execution"
-          # Set up environment variables for the analysis
+          # Set up environment variables
           export TOKEN="${{ secrets.TOKEN }}"
           export ANALYZE_ALL_FILES="${{ github.event.inputs.analyze_all_files || 'false' }}"
           export EVENT_NAME="${{ github.event_name }}"
@@ -187,40 +166,50 @@ jobs:
             find ./Assets -name "*.cs" -type f | head -10 > changed_files.txt
           fi
           
-          # Run the Unity analyzer script directly
+          # Run the Unity analyzer script
           ANALYZER_SCRIPT="./.github/actions/code-review-action/.github/scripts/unity-analyzer.sh"
           if [ -f "$ANALYZER_SCRIPT" ]; then
             chmod +x "$ANALYZER_SCRIPT"
             
-            # Run the analyzer script
             if "$ANALYZER_SCRIPT"; then
-              echo "✅ Unity analyzer script completed successfully"
               echo "analysis_success=true" >> $GITHUB_OUTPUT
             else
-              echo "⚠️ Unity analyzer script completed with warnings or errors"
               echo "analysis_success=false" >> $GITHUB_OUTPUT
             fi
             
             # Check if report was generated
             if [ -f "unity-analysis-report.md" ]; then
-              echo "✅ Analysis report generated successfully"
               echo "report_generated=true" >> $GITHUB_OUTPUT
             else
-              echo "⚠️ Analysis report not found"
               echo "report_generated=false" >> $GITHUB_OUTPUT
             fi
           else
-            echo "❌ Unity analyzer script not found at: $ANALYZER_SCRIPT"
+            echo "Unity analyzer script not found at: $ANALYZER_SCRIPT"
             echo "analysis_success=false" >> $GITHUB_OUTPUT
             echo "report_generated=false" >> $GITHUB_OUTPUT
             exit 1
+          fi
+
+      - name: Prepare and Display Results
+        if: always()
+        run: |
+          if [ -f "unity-analysis-report.md" ]; then
+            echo "Analysis report generated ($(wc -c < unity-analysis-report.md) bytes)"
+            head -10 unity-analysis-report.md
+          else
+            cat > unity-analysis-report.md << EOF
+          # Unity Code Analysis Report
+          
+          Analysis was initiated but encountered issues during report generation.
+          Please check the workflow logs for more details.
+          EOF
           fi
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.TOKEN }}
+          github-token: ${{ secrets.TOKEN || secrets.TOKEN }}
           script: |
             const fs = require('fs');
             
