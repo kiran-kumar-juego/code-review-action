@@ -3,7 +3,7 @@
 ## ✅ Pre-deployment Steps
 
 ### 1. Repository Setup
-- [ ] Repository created on Gitea: `https://internal-git.juegostudio.net/git/kirankumar/code-review-action`
+- [ ] Repository created on Gitea: `https://internal-git.juegostudio.net/git/UnityProjects/code-review-action`
 - [ ] Repository visibility set appropriately (public/private)
 - [ ] Actions enabled in repository settings
 
@@ -228,7 +228,7 @@ env:
 
 ## 📞 Support
 
-- **Repository**: https://internal-git.juegostudio.net/git/kirankumar/code-review-action
+- **Repository**: https://internal-git.juegostudio.net/git/UnityProjects/code-review-action
 - **Issues**: Create issues in the Gitea repository
 - **Documentation**: Check README.md and QUICK_SETUP.md
 - **Contact**: kiran.kumar@juegostudioz.com

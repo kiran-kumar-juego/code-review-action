@@ -55,7 +55,7 @@ If your internal Git server requires authentication, you can:
 
 1. **Use SSH keys:**
    ```bash
-   git submodule add git@internal-git.juegostudio.net:kirankumar/code-review-action.git .github/actions/unity-code-review
+   git submodule add git@internal-git.juegostudio.net:UnityProjects/code-review-action.git .github/actions/unity-code-review
    ```
 
 2. **Use personal access tokens in CI:**
