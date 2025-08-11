@@ -82,7 +82,7 @@ jobs:
           mkdir -p ./.github/actions/code-review-action
           
           CODE_REVIEW_REPO="https://internal-git.juegostudio.net/git/UnityProjects/code-review-action"
-          BRANCH="development"
+          BRANCH="master"
           SUCCESS=false
 
           if [ "$SUCCESS" = false ] && [ -n "${TOKEN}" ]; then
