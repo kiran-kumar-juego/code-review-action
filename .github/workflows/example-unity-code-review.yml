@@ -1,40 +1,384 @@
+# Unity Code Review Workflow
+# 
+# This workflow downloads and runs the Unity code review action from:
+# https://internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action
+#
+# To use this workflow in your Unity project:
+# 1. Copy this file to .github/workflows/ in your Unity project repository
+# 2. Ensure you have a TOKEN secret set up with access to the code-review-action repository
+# 3. Make sure your Unity project has C# files in the Assets/ folder
+# 4. The workflow will run on pull requests, pushes to main/master/development, or manual trigger
+#
+# Requirements:
+# - TOKEN secret with access to internal-git.juegostudio.net
+# - Unity project with Assets/**/*.cs files
+# - Internet access to download the code review action
+
 name: Unity Code Review - Sample Project
 
 on:
   pull_request:
-    paths: 
-      - 'Assets/**/*.cs'
+    paths:
+      - "Assets/**/*.cs"
   push:
-    branches: [ main, master, development ]
-    paths: 
-      - 'Assets/**/*.cs'
+    branches: [ "main", "master", "development" ]
+    paths:
+      - "Assets/**/*.cs"
   workflow_dispatch:
     inputs:
       analyze_all_files:
-        description: 'Analyze all C# files in Assets folder (not just changed files)'
+        description: "Analyze all C# files in Assets folder (not just changed files)"
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 jobs:
   code-review:
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
       pull-requests: write
-      
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          echo "🔍 Detecting changed files for event: ${{ github.event_name }}"
           
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For pull requests, get changed files
+            echo "📝 Pull request detected - analyzing changed files"
+            git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep '\.cs$' | head -20 > changed_files.txt || echo "No C# files changed in PR" > changed_files.txt
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            # For push events, get files from the last commit
+            echo "📤 Push event detected - analyzing last commit changes"
+            git diff --name-only HEAD~1 HEAD | grep '\.cs$' | head -20 > changed_files.txt || echo "No C# files changed in push" > changed_files.txt
+          else
+            # For workflow_dispatch or other events, analyze recent Unity files
+            echo "🎯 Manual trigger detected - analyzing recently modified Unity files"
+            if [ "${{ github.event.inputs.analyze_all_files }}" = "true" ]; then
+              echo "🔍 Analyzing ALL C# files in Assets folder (as requested)"
+              find ./Assets -name "*.cs" -type f | head -50 > changed_files.txt || echo "Assets/**/*.cs" > changed_files.txt
+            else
+              echo "📅 Analyzing recently modified C# files (last 7 days)"
+              find ./Assets -name "*.cs" -type f -mtime -7 2>/dev/null | head -20 > changed_files.txt || find ./Assets -name "*.cs" -type f | head -10 > changed_files.txt || echo "Assets/**/*.cs" > changed_files.txt
+            fi
+          fi
+          
+          echo "📊 Files to analyze:"
+          cat changed_files.txt
+          echo ""
+          
+          # Set outputs
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          cat changed_files.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "all_changed_files=$(cat changed_files.txt | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')" >> $GITHUB_OUTPUT
+
+      - name: Setup Code Review Action
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ./.github/actions/code-review-action
+          
+          # Define the source repository for the code review action
+          CODE_REVIEW_REPO="https://internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action"
+          BRANCH="development"
+          
+          SUCCESS=false
+          
+          # Method 1: Try public download without authentication
+          echo "🔄 Method 1: Trying public download..."
+          for endpoint in \
+            "${CODE_REVIEW_REPO}/archive/${BRANCH}.tar.gz" \
+            "${CODE_REVIEW_REPO}/archive/${BRANCH}.zip"; do
+            echo "  Trying: $endpoint"
+            if curl -sL "$endpoint" -o temp-action.archive; then
+              if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text\|HTML"; then
+                echo "✅ Successfully downloaded without authentication"
+                SUCCESS=true
+                break
+              else
+                echo "  ❌ Got error response (needs auth)"
+                rm -f temp-action.archive
+              fi
+            else
+              echo "  ❌ Download failed"
+            fi
+          done
+
+          # Method 2: Try with TOKEN authentication (API endpoints)
+          if [ "$SUCCESS" = false ] && [ -n "${TOKEN}" ]; then
+            echo "� Method 2: Trying with TOKEN authentication..."
+            
+            # Test if token works
+            if curl -sL -H "Authorization: token ${TOKEN}" \
+                 "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action" \
+                 -o test-response.json; then
+              if grep -q '"name".*"code-review-action"' test-response.json 2>/dev/null; then
+                echo "  ✅ Token authentication works"
+                rm -f test-response.json
+                
+                for endpoint in \
+                  "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.tar.gz" \
+                  "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.zip"; do
+                  echo "  Trying: $endpoint"
+                  if curl -sL -H "Authorization: token ${TOKEN}" "$endpoint" -o temp-action.archive; then
+                    if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
+                      echo "  ✅ Successfully downloaded with TOKEN"
+                      SUCCESS=true
+                      break
+                    else
+                      echo "  ❌ Invalid archive format"
+                    fi
+                  else
+                    echo "  ❌ Download failed"
+                  fi
+                  rm -f temp-action.archive
+                done
+              else
+                echo "  ❌ Token authentication failed"
+              fi
+            else
+              echo "  ❌ Cannot test token authentication"
+            fi
+            rm -f test-response.json
+          fi
+
+          # Method 3: Try with GITHUB_TOKEN if TOKEN failed
+          if [ "$SUCCESS" = false ] && [ -n "${GITHUB_TOKEN}" ] && [ "${GITHUB_TOKEN}" != "${TOKEN}" ]; then
+            echo "🔄 Method 3: Trying with GITHUB_TOKEN..."
+            for endpoint in \
+              "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.tar.gz" \
+              "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.zip"; do
+              echo "  Trying: $endpoint"
+              if curl -sL -H "Authorization: token ${GITHUB_TOKEN}" "$endpoint" -o temp-action.archive; then
+                if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
+                  echo "  ✅ Successfully downloaded with GITHUB_TOKEN"
+                  SUCCESS=true
+                  break
+                else
+                  echo "  ❌ Invalid archive format"
+                fi
+              else
+                echo "  ❌ Download failed"
+              fi
+              rm -f temp-action.archive
+            done
+          fi
+
+          # Method 4: Try git clone as fallback
+          if [ "$SUCCESS" = false ]; then
+            echo "🔄 Method 4: Trying git clone as fallback..."
+            
+            # Try without auth first
+            if git clone -b "${BRANCH}" --depth 1 "${CODE_REVIEW_REPO}.git" temp-clone 2>/dev/null; then
+              echo "  ✅ Git clone succeeded without auth"
+              SUCCESS=true
+            else
+              echo "  ❌ Public git clone failed, trying with authentication..."
+              
+              # Try with different auth methods
+              for auth_token in "${TOKEN}" "${GITHUB_TOKEN}"; do
+                if [ -n "${auth_token}" ]; then
+                  for git_url in \
+                    "https://oauth2:${auth_token}@internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action.git" \
+                    "https://${auth_token}@internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action.git"; do
+                    echo "    Trying git clone with auth..."
+                    if git clone -b "${BRANCH}" --depth 1 "$git_url" temp-clone 2>/dev/null; then
+                      echo "    ✅ Git clone succeeded with auth"
+                      SUCCESS=true
+                      break 2
+                    fi
+                  done
+                fi
+              done
+            fi
+
+            if [ "$SUCCESS" = true ] && [ -d "temp-clone" ]; then
+              echo "  📦 Creating archive from cloned repository..."
+              cd temp-clone
+              tar -czf ../temp-action.archive .
+              cd ..
+              rm -rf temp-clone
+            fi
+          fi
+
+          # Check if we succeeded
+          if [ "$SUCCESS" = false ]; then
+            echo "❌ All download methods failed. Please check:"
+            echo "   1. Repository exists: $CODE_REVIEW_REPO"
+            echo "   2. Branch '$BRANCH' exists"
+            echo "   3. TOKEN secret is set with appropriate permissions"
+            echo "   4. Network connectivity to internal-git.juegostudio.net"
+            echo ""
+            echo "Available environment variables:"
+            echo "   TOKEN is set: $([ -n "${TOKEN}" ] && echo "yes" || echo "no")"
+            echo "   GITHUB_TOKEN is set: $([ -n "${GITHUB_TOKEN}" ] && echo "yes" || echo "no")"
+            exit 1
+          fi
+
+          # Extract the downloaded archive
+          mkdir -p temp-extract
+          
+          if file temp-action.archive | grep -q "gzip\|tar"; then
+            tar -xzf temp-action.archive -C temp-extract
+          elif file temp-action.archive | grep -q "Zip"; then
+            unzip -q temp-action.archive -d temp-extract
+          else
+            echo "❌ Unknown archive format"
+            exit 1
+          fi
+          
+          # Copy files to the action directory
+          MAIN_DIR=$(find temp-extract -mindepth 1 -maxdepth 1 -type d | head -1)
+          
+          if [ -n "$MAIN_DIR" ]; then
+            cp -r "$MAIN_DIR"/* ./.github/actions/code-review-action/
+            cp -r "$MAIN_DIR"/.[^.]* ./.github/actions/code-review-action/ 2>/dev/null || true
+          else
+            cp -r temp-extract/* ./.github/actions/code-review-action/
+            cp -r temp-extract/.[^.]* ./.github/actions/code-review-action/ 2>/dev/null || true
+          fi
+
+          # Cleanup
+          rm -rf temp-action.* temp-extract
+
+          # Set executable permissions
+          echo "🔧 Setting executable permissions..."
+          find ./.github/actions/code-review-action -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+
+          # Verify the action was downloaded correctly
+          if [ -f "./.github/actions/code-review-action/action.yml" ]; then
+            echo "✅ Code review action set up successfully"
+          else
+            echo "❌ Action setup failed - action.yml not found"
+            exit 1
+          fi
+
+      - name: Prepare Analysis Environment
+        run: |
+          echo "🔧 Preparing analysis environment..."
+          
+          # Ensure we have files to analyze
+          if [ ! -f "changed_files.txt" ] || [ ! -s "changed_files.txt" ]; then
+            echo "⚠️ No changed files detected, creating default file list"
+            find ./Assets -name "*.cs" -type f | head -10 > changed_files.txt
+          fi
+          
+          # Create any required environment files
+          echo "ANALYZE_ALL_FILES=${{ github.event.inputs.analyze_all_files || 'false' }}" > .env
+          echo "EVENT_NAME=${{ github.event_name }}" >> .env
+          echo "REPO_NAME=${{ github.repository }}" >> .env
+          
+          # Ensure the action has executable permissions
+          find ./.github/actions/code-review-action -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+          
+          echo "✅ Analysis environment prepared"
+          echo "� Files to analyze: $(wc -l < changed_files.txt)"
+
       - name: Run Unity Code Analysis
-        uses: https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git@development
-        with:
-          github-token: ${{ secrets.TOKEN }}
+        id: analysis
+        run: |
+          echo "🚀 Running Unity Code Analysis..."
+          echo "Current directory: $(pwd)"
+          echo "Analysis method: Direct script execution"
+          # Set up environment variables for the analysis
+          export GITHUB_TOKEN="${{ secrets.TOKEN }}"
+          export TOKEN="${{ secrets.TOKEN }}"
+          export ANALYZE_ALL_FILES="${{ github.event.inputs.analyze_all_files || 'false' }}"
+          export EVENT_NAME="${{ github.event_name }}"
+          export CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
           
+          # Ensure we have files to analyze
+          if [ ! -f "changed_files.txt" ] || [ ! -s "changed_files.txt" ]; then
+            find ./Assets -name "*.cs" -type f | head -10 > changed_files.txt
+          fi
+          
+          # Run the Unity analyzer script directly
+          ANALYZER_SCRIPT="./.github/actions/code-review-action/.github/scripts/unity-analyzer.sh"
+          if [ -f "$ANALYZER_SCRIPT" ]; then
+            chmod +x "$ANALYZER_SCRIPT"
+            
+            # Run the analyzer script
+            if "$ANALYZER_SCRIPT"; then
+              echo "✅ Unity analyzer script completed successfully"
+              echo "analysis_success=true" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Unity analyzer script completed with warnings or errors"
+              echo "analysis_success=false" >> $GITHUB_OUTPUT
+            fi
+            
+            # Check if report was generated
+            if [ -f "unity-analysis-report.md" ]; then
+              echo "✅ Analysis report generated successfully"
+              echo "report_generated=true" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Analysis report not found"
+              echo "report_generated=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ Unity analyzer script not found at: $ANALYZER_SCRIPT"
+            echo "analysis_success=false" >> $GITHUB_OUTPUT
+            echo "report_generated=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Display Analysis Results
+        if: always()
+        run: |
+          if [ -f "unity-analysis-report.md" ]; then
+            echo "✅ Analysis report generated"
+            echo "� Report size: $(wc -c < unity-analysis-report.md) bytes"
+            echo "� First 10 lines:"
+            head -10 unity-analysis-report.md
+          else
+            echo "❌ Analysis report not found"
+          fi
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN || secrets.TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            let analysisContent = '';
+            if (fs.existsSync('unity-analysis-report.md')) {
+              analysisContent = fs.readFileSync('unity-analysis-report.md', 'utf8');
+            }
+            
+            const commentBody = analysisContent ? 
+              `## 🤖 AI Code Review - Unity Project\n\n${analysisContent}\n\n---\n*This review was generated automatically by GitHub Copilot AI*` :
+              `## 🤖 AI Code Review - Unity Project\n\n**Analysis Status:** Code analysis completed but detailed report not available.\n\n**General Unity Best Practices:**\n- Follow Unity coding standards and naming conventions\n- Optimize performance-critical code sections\n- Use proper error handling and null checks\n- Follow SOLID principles where applicable\n\n---\n*This review was generated automatically by GitHub Copilot AI*`;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
+
+      - name: Prepare Report for Upload
+        if: always()
+        run: |
+          if [ -f "unity-analysis-report.md" ]; then
+            echo "✅ Analysis report ready for upload"
+          else
+            echo "# Unity Code Analysis Report" > unity-analysis-report.md
+            echo "" >> unity-analysis-report.md
+            echo "Analysis was initiated but encountered issues during report generation." >> unity-analysis-report.md
+            echo "Please check the workflow logs for more details." >> unity-analysis-report.md
+          fi
+
       - name: Upload Analysis Report
         if: always()
         uses: actions/upload-artifact@v3

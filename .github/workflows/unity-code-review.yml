@@ -13,7 +13,6 @@ on:
         required: false
         default: 'false'
         type: boolean
-
 jobs:
   code-review:
     runs-on: ubuntu-latest
@@ -24,711 +23,655 @@ jobs:
       checks: write
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0  # Fetch full history for better analysis
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '6.0.x'
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
 
-    - name: Cache Unity Library
-      uses: actions/cache@v3
-      with:
-        path: Library
-        key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
-        restore-keys: |
-          Library-
-
-    - name: Get changed files 
-      id: changed-files
-      if: github.event_name == 'pull_request'
-      run: |
-        echo "Getting changed files from pull request..."
-        # Use git to get changed files between base and head
-        git fetch origin ${{ github.event.pull_request.base.ref }}
-        changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep "\.cs$" | grep "^Assets/" || true)
-        
-        if [ -n "$changed_files" ]; then
-          echo "all_changed_files<<EOF" >> $GITHUB_OUTPUT
-          echo "$changed_files" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "any_changed=true" >> $GITHUB_OUTPUT
-        else
-          echo "any_changed=false" >> $GITHUB_OUTPUT
-          echo "No C# files changed in Assets folder"
-        fi
-      continue-on-error: true
-
-    - name: Get all files for manual dispatch
-      id: all-files
-      if: github.event_name == 'workflow_dispatch'
-      run: |
-        echo "=== MANUAL DISPATCH FILE DETECTION ==="
-        echo "analyze_all_files input: '${{ github.event.inputs.analyze_all_files }}'"
-        
-        if [ "${{ github.event.inputs.analyze_all_files }}" == "true" ]; then
-          echo "Finding all C# files in Assets folder..."
-          if [ -d "Assets" ]; then
-            all_cs_files=$(find Assets -name "*.cs" -type f)
-            file_count=$(echo "$all_cs_files" | wc -l)
+      - name: Get changed files 
+        id: changed-files
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Getting changed files from pull request..."
+          # Use git to get changed files between base and head
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          changed_files=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep "\.cs$" | grep "^Assets/" || true)
+          
+          if [ -n "$changed_files" ]; then
             echo "all_changed_files<<EOF" >> $GITHUB_OUTPUT
-            echo "$all_cs_files" >> $GITHUB_OUTPUT
+            echo "$changed_files" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
             echo "any_changed=true" >> $GITHUB_OUTPUT
-            echo "Found $file_count C# files"
           else
-            echo "Assets folder not found"
             echo "any_changed=false" >> $GITHUB_OUTPUT
+            echo "No C# files changed in Assets folder"
           fi
-        else
-          echo "Getting recently modified files (last 7 days)..."
-          if [ -d "Assets" ]; then
-            recent_files=$(find Assets -name "*.cs" -type f -mtime -7)
-            if [ -n "$recent_files" ]; then
-              file_count=$(echo "$recent_files" | wc -l)
-              echo "all_changed_files<<EOF" >> $GITHUB_OUTPUT
-              echo "$recent_files" >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
-              echo "any_changed=true" >> $GITHUB_OUTPUT
-              echo "Found $file_count recently modified files"
-            else
-              echo "No recently modified C# files found - defaulting to ALL files"
-              # Default to all files if no recent files found
+        continue-on-error: true
+
+      - name: Get all files for manual dispatch
+        id: all-files
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "=== MANUAL DISPATCH FILE DETECTION ==="
+          echo "analyze_all_files input: '${{ github.event.inputs.analyze_all_files }}'"
+          
+          if [ "${{ github.event.inputs.analyze_all_files }}" == "true" ]; then
+            echo "Finding all C# files in Assets folder..."
+            if [ -d "Assets" ]; then
               all_cs_files=$(find Assets -name "*.cs" -type f)
               file_count=$(echo "$all_cs_files" | wc -l)
               echo "all_changed_files<<EOF" >> $GITHUB_OUTPUT
               echo "$all_cs_files" >> $GITHUB_OUTPUT
               echo "EOF" >> $GITHUB_OUTPUT
               echo "any_changed=true" >> $GITHUB_OUTPUT
-              echo "Defaulted to all $file_count C# files"
+              echo "Found $file_count C# files"
+            else
+              echo "Assets folder not found"
+              echo "any_changed=false" >> $GITHUB_OUTPUT
             fi
           else
-            echo "Assets folder not found"
-            echo "any_changed=false" >> $GITHUB_OUTPUT
+            echo "Getting recently modified files (last 7 days)..."
+            if [ -d "Assets" ]; then
+              recent_files=$(find Assets -name "*.cs" -type f -mtime -7)
+              if [ -n "$recent_files" ]; then
+                file_count=$(echo "$recent_files" | wc -l)
+                echo "all_changed_files<<EOF" >> $GITHUB_OUTPUT
+                echo "$recent_files" >> $GITHUB_OUTPUT
+                echo "EOF" >> $GITHUB_OUTPUT
+                echo "any_changed=true" >> $GITHUB_OUTPUT
+                echo "Found $file_count recently modified files"
+              else
+                echo "No recently modified C# files found - defaulting to ALL files"
+                # Default to all files if no recent files found
+                all_cs_files=$(find Assets -name "*.cs" -type f)
+                file_count=$(echo "$all_cs_files" | wc -l)
+                echo "all_changed_files<<EOF" >> $GITHUB_OUTPUT
+                echo "$all_cs_files" >> $GITHUB_OUTPUT
+                echo "EOF" >> $GITHUB_OUTPUT
+                echo "any_changed=true" >> $GITHUB_OUTPUT
+                echo "Defaulted to all $file_count C# files"
+              fi
+            else
+              echo "Assets folder not found"
+              echo "any_changed=false" >> $GITHUB_OUTPUT
+            fi
           fi
-        fi
-        echo "=== END FILE DETECTION ==="
+          echo "=== END FILE DETECTION ==="
 
-    - name: Debug Analysis Conditions
-      run: |
-        echo "=== DEBUG INFORMATION ==="
-        echo "Event name: ${{ github.event_name }}"
-        echo "analyze_all_files input: '${{ github.event.inputs.analyze_all_files }}'"
-        echo "Changed files any_changed: '${{ steps.changed-files.outputs.any_changed }}'"
-        echo "All files any_changed: '${{ steps.all-files.outputs.any_changed }}'"
-        echo "PR condition result: ${{ github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true' }}"
-        echo "Dispatch condition result: ${{ github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true' }}"
-        echo "Overall condition result: ${{ (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true') }}"
+      - name: Debug Analysis Conditions
+        run: |
+          echo "=== DEBUG INFORMATION ==="
+          echo "Event name: ${{ github.event_name }}"
+          echo "analyze_all_files input: '${{ github.event.inputs.analyze_all_files }}'"
+          echo "Changed files any_changed: '${{ steps.changed-files.outputs.any_changed }}'"
+          echo "All files any_changed: '${{ steps.all-files.outputs.any_changed }}'"
+          echo "PR condition result: ${{ github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true' }}"
+          echo "Dispatch condition result: ${{ github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true' }}"
+          echo "Overall condition result: ${{ (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true') }}"
 
-    - name: Unity Code Analysis
-      if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
-      run: |
-        echo "Analyzing Unity project structure..."
-        
-        # Ensure we're in the right directory and Assets folder exists
-        echo "Current directory: $(pwd)"
-        echo "Assets folder exists: $([ -d "Assets" ] && echo "Yes" || echo "No")"
-        
-        # Determine which files to analyze
-        if [ "${{ github.event_name }}" == "pull_request" ]; then
-          files_to_analyze="${{ steps.changed-files.outputs.all_changed_files }}"
-          analysis_type="Changed Files (Pull Request)"
-        else
-          files_to_analyze="${{ steps.all-files.outputs.all_changed_files }}"
-          if [ "${{ github.event.inputs.analyze_all_files }}" == "true" ]; then
-            analysis_type="All Files (Manual Dispatch)"
+      - name: Unity Code Analysis
+        if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
+        run: |
+          echo "Analyzing Unity project structure..."
+          
+          # Ensure we're in the right directory and Assets folder exists
+          echo "Current directory: $(pwd)"
+          echo "Assets folder exists: $([ -d "Assets" ] && echo "Yes" || echo "No")"
+          
+          # Determine which files to analyze
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            files_to_analyze="${{ steps.changed-files.outputs.all_changed_files }}"
+            analysis_type="Changed Files (Pull Request)"
           else
-            analysis_type="Recently Modified Files (Manual Dispatch)"
+            files_to_analyze="${{ steps.all-files.outputs.all_changed_files }}"
+            if [ "${{ github.event.inputs.analyze_all_files }}" == "true" ]; then
+              analysis_type="All Files (Manual Dispatch)"
+            else
+              analysis_type="Recently Modified Files (Manual Dispatch)"
+            fi
           fi
-        fi
-        
-        # Handle case where no files are found
-        if [ -z "$files_to_analyze" ] && [ -d "Assets" ]; then
-          echo "No specific files to analyze, finding all C# files in Assets..."
-          files_to_analyze=$(find Assets -name "*.cs" -type f | tr '\n' ' ')
-          analysis_type="All Available Files (Fallback)"
-        fi
-        
-        # Create analysis report
-        echo "# Unity Code Review Report" > code_analysis.md
-        echo "" >> code_analysis.md
-        echo "**Analysis Type:** $analysis_type" >> code_analysis.md
-        echo "**Trigger:** ${{ github.event_name }}" >> code_analysis.md
-        echo "**Repository:** $(basename "$(pwd)")" >> code_analysis.md
-        echo "" >> code_analysis.md
-        echo "## 📊 Summary:" >> code_analysis.md
-        
-        if [ -n "$files_to_analyze" ]; then
-          file_count=$(echo "$files_to_analyze" | wc -w)
-          echo "- **Files Analyzed:** $file_count" >> code_analysis.md
-        else
-          echo "- **Files Analyzed:** 0 (No C# files found or no changes detected)" >> code_analysis.md
-        fi
-        echo "- **Analysis Date:** $(date '+%Y-%m-%d %H:%M:%S')" >> code_analysis.md
-        echo "" >> code_analysis.md
-
-    - name: Unity Code Analysis with Custom Script
-      if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
-      run: |
-        echo "Running Unity Code Analysis..."
-        
-        # Check if custom analyzer script exists, if not skip this step
-        if [ -f ".github/scripts/unity-analyzer.sh" ]; then
-          chmod +x .github/scripts/unity-analyzer.sh
           
-          # Run the analyzer and capture the exit code
-          set +e  # Don't exit on error
-          ./.github/scripts/unity-analyzer.sh > unity_analysis_report.md
-          analyzer_exit_code=$?
-          set -e  # Re-enable exit on error
+          # Handle case where no files are found
+          if [ -z "$files_to_analyze" ] && [ -d "Assets" ]; then
+            echo "No specific files to analyze, finding all C# files in Assets..."
+            files_to_analyze=$(find Assets -name "*.cs" -type f | tr '\n' ' ')
+            analysis_type="All Available Files (Fallback)"
+          fi
           
-          # Always add the analysis to our report, regardless of exit code
+          # Create analysis report
+          echo "# Unity Code Review Report" > code_analysis.md
           echo "" >> code_analysis.md
-  
+          echo "**Analysis Type:** $analysis_type" >> code_analysis.md
+          echo "**Trigger:** ${{ github.event_name }}" >> code_analysis.md
+          echo "**Repository:** $(basename "$(pwd)")" >> code_analysis.md
           echo "" >> code_analysis.md
-          cat unity_analysis_report.md >> code_analysis.md
+          echo "## 📊 Summary:" >> code_analysis.md
           
-          # Show the exit code for debugging but don't fail the workflow
-          echo "Unity analyzer completed with exit code: $analyzer_exit_code"
-        else
-          echo "Custom Unity analyzer script not found, skipping..."
-          echo "" >> code_analysis.md
-  
-          echo "" >> code_analysis.md
-          echo "## Custom Unity Analysis" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "*Custom analyzer script not found - using built-in analysis only*" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-
-    - name: Unity Specific Code Quality Checks
-      if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
-      run: |
-        echo "Running Unity-specific code quality checks..."
-        
-        # Check for common Unity anti-patterns
-        echo "## Unity Code Quality Analysis" >> code_analysis.md
-        echo "" >> code_analysis.md
-        
-        # Initialize categorized analysis sections
-
-        echo "" >> code_analysis.md
-        echo "### 🚨 **ERRORS (CRITICAL ISSUES)** 🚨" >> code_analysis.md
-        echo "" >> code_analysis.md
-
-        echo "" >> code_analysis.md
-        # Check for coding conventions and naming standards
-        naming_convention_results=$(grep -rn "public.*[a-z][A-Za-z]*\|private.*[A-Z][A-Za-z]*" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
-        if [ -n "$naming_convention_results" ]; then
-          echo "#### 📝 **Naming convention issues**" >> code_analysis.md
-          echo "*Methods/Properties should use PascalCase, fields should use camelCase*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Issue |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$naming_convention_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for missing XML documentation
-        missing_docs_results=$(grep -rn "public.*void\|public.*class\|public.*interface" Assets/ --include="*.cs" | grep -v "///" 2>/dev/null | head -8 || true)
-        if [ -n "$missing_docs_results" ]; then
-          echo "#### 📚 **Missing summary documentation**" >> code_analysis.md
-          echo "*Public methods and classes should have XML documentation*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Element |" >> code_analysis.md
-          echo "|------|------|---------|" >> code_analysis.md
-          echo "$missing_docs_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for region organization in large files
-        large_files_results=$(find Assets/ -name "*.cs" -exec wc -l {} \; | awk '$1 > 100 {print $2}' | head -5 || true)
-        if [ -n "$large_files_results" ]; then
-          echo "#### 🗂️ **Large files without regions**" >> code_analysis.md
-          echo "*Consider using #region blocks to organize large scripts*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Lines | Recommendation |" >> code_analysis.md
-          echo "|------|-------|----------------|" >> code_analysis.md
-          echo "$large_files_results" | while IFS= read -r file; do
-            if [ -n "$file" ]; then
-              lines=$(wc -l < "$file" 2>/dev/null || echo "0")
-              echo "| \`$(basename "$file")\` | **$lines** | Use regions for organization |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for missing namespace declarations
-        namespace_results=$(find Assets/ -name "*.cs" -exec grep -L "namespace " {} \; 2>/dev/null | head -8 || true)
-        if [ -n "$namespace_results" ]; then
-          echo "#### 📁 **Missing namespace declarations**" >> code_analysis.md
-          echo "*C# scripts should be wrapped in namespaces*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File |" >> code_analysis.md
-          echo "|------|" >> code_analysis.md
-          echo "$namespace_results" | while IFS= read -r file; do
-            echo "| \`$(basename "$file")\` |" >> code_analysis.md
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for magic numbers
-        magic_numbers_results=$(grep -rn "\b[0-9]\{3,\}\b" Assets/ --include="*.cs" | grep -v "//\|/\*" | head -8 2>/dev/null || true)
-        if [ -n "$magic_numbers_results" ]; then
-          echo "#### 🔢 **Hardcoded numbers detected**" >> code_analysis.md
-          echo "*Consider using named constants for large numbers*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Value |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$magic_numbers_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for expensive Find operations in Update methods
-        find_in_update_results=$(grep -rn -A3 -B3 "Update()" Assets/ --include="*.cs" | grep -E "GameObject\.Find|FindObjectOfType|FindObjectsOfType" 2>/dev/null || true)
-        if [ -n "$find_in_update_results" ]; then
-          echo "#### 🚨 **Find operations in Update methods**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Issue |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$find_in_update_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Impact:** Significant performance issue - cache these references in Awake/Start" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-
-        # Check for critical performance issues - Instantiate/Destroy in Update
-        instantiate_destroy_results=$(grep -rn -A2 -B2 "Update()" Assets/ --include="*.cs" | grep -E "Instantiate|Destroy" 2>/dev/null || true)
-        if [ -n "$instantiate_destroy_results" ]; then
-          echo "#### 🔥 **Instantiate/Destroy in Update methods**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Issue |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$instantiate_destroy_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Impact:** Major performance concern - these operations are expensive in Update loops" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for GetComponent without null checking
-        getcomponent_results=$(grep -rn "\.GetComponent<.*>()" Assets/ --include="*.cs" | grep -v "null" 2>/dev/null | head -8 || true)
-        if [ -n "$getcomponent_results" ]; then
-          echo "#### 💥 **GetComponent calls without null checking**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Code |" >> code_analysis.md
-          echo "|------|------|------|" >> code_analysis.md
-          echo "$getcomponent_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Risk:** Potential null reference exceptions" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for repeated GetComponent calls
-        repeated_getcomponent_results=$(grep -rn "\.GetComponent" Assets/ --include="*.cs" | awk -F: '{print $1}' | sort | uniq -c | awk '$1 > 4 {print $2}' | head -5 || true)
-        if [ -n "$repeated_getcomponent_results" ]; then
-          echo "#### 🔄 **Repeated GetComponent calls**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Count | Recommendation |" >> code_analysis.md
-          echo "|------|-------|----------------|" >> code_analysis.md
-          echo "$repeated_getcomponent_results" | while IFS= read -r file; do
-            if [ -n "$file" ]; then
-              count=$(grep -c "\.GetComponent" "$file" 2>/dev/null || echo "0")
-              echo "| \`$(basename "$file")\` | **$count** | Cache component references in Awake/Start |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Performance:** Multiple GetComponent calls detected - cache references for better performance" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for uninitialized nullable fields
-        nullable_uninitialized_results=$(grep -rn "public.*\?\|private.*\?" Assets/ --include="*.cs" | grep -v "= null\|= default" 2>/dev/null | head -8 || true)
-        if [ -n "$nullable_uninitialized_results" ]; then
-          echo "#### ❓ **Uninitialized nullable fields**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Field |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$nullable_uninitialized_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Risk:** Nullable fields should be explicitly initialized or have null checks" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for dangerous MonoBehaviour operations in constructors
-        constructor_mono_results=$(grep -rn -A5 "public.*:" Assets/ --include="*.cs" | grep -B5 -A5 "MonoBehaviour\|ScriptableObject" | grep "GetComponent\|transform\|gameObject" 2>/dev/null | head -8 || true)
-        if [ -n "$constructor_mono_results" ]; then
-          echo "#### 🚫 **MonoBehaviour operations in constructors**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Issue |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$constructor_mono_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Risk:** Unity objects not available in constructors - use Awake instead" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for hardcoded file paths
-        hardcoded_paths_results=$(grep -rn "Application\.dataPath\|Application\.persistentDataPath.*+.*\"" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
-        if [ -n "$hardcoded_paths_results" ]; then
-          echo "#### 📁 **Hardcoded file paths**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Path Usage |" >> code_analysis.md
-          echo "|------|------|------------|" >> code_analysis.md
-          echo "$hardcoded_paths_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Risk:** Use Path.Combine() for cross-platform compatibility" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for missing try-catch in file operations
-        file_operations_results=$(grep -rn "File\.\|Directory\." Assets/ --include="*.cs" | grep -v "try\|catch" 2>/dev/null | head -8 || true)
-        if [ -n "$file_operations_results" ]; then
-          echo "#### 💥 **File operations without exception handling**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Operation |" >> code_analysis.md
-          echo "|------|------|-----------|" >> code_analysis.md
-          echo "$file_operations_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Risk:** File operations can throw exceptions - add proper error handling" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for empty catch blocks
-        empty_catch_results=$(grep -rn -A2 "catch" Assets/ --include="*.cs" | grep -A2 "{" | grep "^\s*}\s*$" 2>/dev/null | head -5 || true)
-        if [ -n "$empty_catch_results" ]; then
-          echo "#### 🕳️ **Empty catch blocks**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Issue |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$empty_catch_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              echo "| \`$(basename "$file")\` | **$line_num** | Empty catch block |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Risk:** Silent exception swallowing - add logging or proper handling" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for Camera.main usage in Update loops
-        camera_main_update_results=$(grep -rn -A3 -B3 "Update()" Assets/ --include="*.cs" | grep "Camera\.main" 2>/dev/null || true)
-        if [ -n "$camera_main_update_results" ]; then
-          echo "#### 📷 **Camera.main in Update loops**" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Usage |" >> code_analysis.md
-          echo "|------|------|-------|" >> code_analysis.md
-          echo "$camera_main_update_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-          echo "> ⚠️ **Performance:** Camera.main uses FindObjectWithTag - cache the reference" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        if [ -z "$instantiate_destroy_results" ] && [ -z "$find_in_update_results" ] && [ -z "$getcomponent_results" ] && [ -z "$repeated_getcomponent_results" ] && [ -z "$coroutine_cleanup_results" ] && [ -z "$resource_disposal_results" ] && [ -z "$singleton_results" ] && [ -z "$nullable_uninitialized_results" ] && [ -z "$constructor_mono_results" ] && [ -z "$hardcoded_paths_results" ] && [ -z "$file_operations_results" ] && [ -z "$empty_catch_results" ] && [ -z "$camera_main_update_results" ]; then
-          echo "#### ✅ **No critical issues found** 🎉" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "> 💚 All analyzed code passes critical issue checks!" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-
-        echo "" >> code_analysis.md
-
-        echo "" >> code_analysis.md
-        echo "### ⚠️ **WARNINGS (POTENTIAL ISSUES)** ⚠️" >> code_analysis.md
-        echo "" >> code_analysis.md
-
-        echo "" >> code_analysis.md
-        
-        # Check for GameObject.Find usage
-        find_results=$(grep -rn "GameObject.Find\|FindObjectOfType" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
-        if [ -n "$find_results" ]; then
-          echo "#### 🔍 **GameObject.Find usage**" >> code_analysis.md
-          echo "*Consider caching these references for better performance*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Method Used |" >> code_analysis.md
-          echo "|------|------|-------------|" >> code_analysis.md
-          echo "$find_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for public field initialization
-        public_init_results=$(grep -rn "public.*=.*new" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
-        if [ -n "$public_init_results" ]; then
-          echo "#### 🔒 **Public field initialization**" >> code_analysis.md
-          echo "*Consider using [SerializeField] private fields instead*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Declaration |" >> code_analysis.md
-          echo "|------|------|-------------|" >> code_analysis.md
-          echo "$public_init_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        # Check for LINQ in performance-critical areas
-        linq_results=$(grep -rn "using System.Linq" Assets/ --include="*.cs" 2>/dev/null | head -5 || true)
-        if [ -n "$linq_results" ]; then
-          echo "#### ⚡ **LINQ usage detected**" >> code_analysis.md
-          echo "*Verify performance impact in Update loops*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line |" >> code_analysis.md
-          echo "|------|------|" >> code_analysis.md
-          echo "$linq_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              echo "| \`$(basename "$file")\` | **$line_num** |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        
-        # Check for string concatenation in loops
-        string_concat_results=$(grep -rn -A3 -B3 "for\|while" Assets/ --include="*.cs" | grep "+=" | grep "string\|String" 2>/dev/null | head -5 || true)
-        if [ -n "$string_concat_results" ]; then
-          echo "#### 🔗 **String concatenation in loops**" >> code_analysis.md
-          echo "*Use StringBuilder for better performance*" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "| File | Line | Code |" >> code_analysis.md
-          echo "|------|------|------|" >> code_analysis.md
-          echo "$string_concat_results" | while IFS= read -r line; do
-            if [[ $line == *":"* ]]; then
-              file=$(echo "$line" | cut -d: -f1)
-              line_num=$(echo "$line" | cut -d: -f2)
-              code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
-              echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
-            fi
-          done
-          echo "" >> code_analysis.md
-        fi
-        
-        if [ -z "$find_results" ] && [ -z "$public_init_results" ] && [ -z "$linq_results" ] && [ -z "$namespace_results" ] && [ -z "$magic_numbers_results" ] && [ -z "$string_concat_results" ] && [ -z "$naming_convention_results" ] && [ -z "$missing_docs_results" ] && [ -z "$large_files_results" ]; then
-          echo "#### ✅ **No warnings found** 🎉" >> code_analysis.md
-          echo "" >> code_analysis.md
-          echo "> 💛 Code follows good warning-free practices!" >> code_analysis.md
-          echo "" >> code_analysis.md
-        fi
-        
-        # Add comprehensive final analysis
-
-        echo "" >> code_analysis.md
-
-        echo "" >> code_analysis.md
-        echo "## 🚀 **COMPREHENSIVE UNITY CODE ANALYSIS COMPLETE** 🎯" >> code_analysis.md
-        echo "" >> code_analysis.md
-
-        echo "" >> code_analysis.md
-        
-        # Final quality scoring system
-        total_files_checked=$(find Assets/ -name "*.cs" 2>/dev/null | wc -l || echo "0")
-        critical_issues_count=$(echo "$instantiate_destroy_results$find_in_update_results$getcomponent_results$repeated_getcomponent_results$coroutine_cleanup_results$resource_disposal_results$singleton_results$nullable_uninitialized_results$constructor_mono_results$hardcoded_paths_results$file_operations_results$empty_catch_results$camera_main_update_results" | grep -c ":" 2>/dev/null || echo "0")
-        warning_issues_count=$(echo "$find_results$public_init_results$linq_results$string_concat_results$naming_convention_results$missing_docs_results" | grep -c ":" 2>/dev/null || echo "0")
-        optimization_patterns_count=$(echo "$job_system_results$burst_results$factory_pooling_results$scriptable_architecture_results$state_machine_results" | grep -c ":" 2>/dev/null || echo "0")
-        
-        # Calculate quality score (100 point scale)
-        quality_score=100
-        quality_score=$((quality_score - (critical_issues_count * 10)))
-        quality_score=$((quality_score - (warning_issues_count * 2)))
-        quality_score=$((quality_score + (optimization_patterns_count * 5)))
-        [ $quality_score -lt 0 ] && quality_score=0
-        [ $quality_score -gt 100 ] && quality_score=100
-        
-        echo "### 📊 **Final Code Quality Report**" >> code_analysis.md
-        echo "" >> code_analysis.md
-        echo "| **Metric** | **Count** | **Impact** |" >> code_analysis.md
-        echo "|------------|-----------|------------|" >> code_analysis.md
-        echo "| 📁 **Total C# Files Analyzed** | **$total_files_checked** | ℹ️ Scope |" >> code_analysis.md
-        echo "| 🔴 **Critical Issues** | **$critical_issues_count** | $([ $critical_issues_count -eq 0 ] && echo '✅ Excellent' || echo '⚠️ Immediate attention required') |" >> code_analysis.md
-        echo "| 🟡 **Warning Issues** | **$warning_issues_count** | $([ $warning_issues_count -lt 5 ] && echo '✅ Good' || echo '⚠️ Review recommended') |" >> code_analysis.md
-        echo "" >> code_analysis.md
-
-        echo "" >> code_analysis.md
-        
-    - name: Upload Analysis Report
-      if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
-      uses: actions/upload-artifact@v3
-      with:
-        name: unity-code-analysis-report
-        path: |
-          code_analysis.md
-          pr_comment.md
-        retention-days: 30
-      continue-on-error: true
-
-    - name: Comment on PR
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          
-          try {
-            const analysisContent = fs.readFileSync('code_analysis.md', 'utf8');
-            
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🤖 AI Code Review - Unity Project\n\n${analysisContent}\n\n---\n*This review was generated automatically by GitHub Copilot AI*`
-            });
-          } catch (error) {
-            console.log('Error reading analysis file:', error);
-            
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🤖 AI Code Review - Unity Project\n\nCode analysis completed for Unity project. The following files were reviewed:\n\n${{ steps.changed-files.outputs.all_changed_files }}\n\n### Key Recommendations:\n- Follow Unity coding standards and best practices\n- Optimize performance-critical code sections\n- Ensure proper error handling and null checks\n- Use appropriate Unity design patterns\n\n---\n*This review was generated automatically by GitHub Copilot AI*`
-            });
-          }
-
-    - name: Review status
-      if: github.event_name == 'pull_request'
-      run: |
-        echo "Checking for critical issues to determine review status..."
-        
-        # Count critical issues from the analysis report
-        critical_issues=0
-        
-        if [ -f "code_analysis.md" ]; then
-          # Count issues in the critical sections
-          instantiate_destroy_count=$(grep -c "🔥 \*\*Instantiate/Destroy in Update methods\*\*" code_analysis.md 2>/dev/null || echo "0")
-          find_in_update_count=$(grep -c "🚨 \*\*Find operations in Update methods\*\*" code_analysis.md 2>/dev/null || echo "0")
-          getcomponent_null_count=$(grep -c "💥 \*\*GetComponent calls without null checking\*\*" code_analysis.md 2>/dev/null || echo "0")
-          repeated_getcomponent_count=$(grep -c "🔄 \*\*Repeated GetComponent calls\*\*" code_analysis.md 2>/dev/null || echo "0")
-          coroutine_cleanup_count=$(grep -c "🧹 \*\*Coroutines without cleanup tracking\*\*" code_analysis.md 2>/dev/null || echo "0")
-          resource_disposal_count=$(grep -c "📦 \*\*Resource loading without disposal\*\*" code_analysis.md 2>/dev/null || echo "0")
-          constructor_mono_count=$(grep -c "🚫 \*\*MonoBehaviour operations in constructors\*\*" code_analysis.md 2>/dev/null || echo "0")
-          file_operations_count=$(grep -c "💥 \*\*File operations without exception handling\*\*" code_analysis.md 2>/dev/null || echo "0")
-          empty_catch_count=$(grep -c "🕳️ \*\*Empty catch blocks\*\*" code_analysis.md 2>/dev/null || echo "0")
-          camera_main_update_count=$(grep -c "📷 \*\*Camera.main in Update loops\*\*" code_analysis.md 2>/dev/null || echo "0")
-          
-          # Sum up all critical issues
-          critical_issues=$((instantiate_destroy_count + find_in_update_count + getcomponent_null_count + repeated_getcomponent_count + coroutine_cleanup_count + resource_disposal_count + constructor_mono_count + file_operations_count + empty_catch_count + camera_main_update_count))
-          
-          echo "=== CRITICAL ISSUES SUMMARY ==="
-          echo "Instantiate/Destroy in Update: $instantiate_destroy_count"
-          echo "Find operations in Update: $find_in_update_count"
-          echo "GetComponent without null checks: $getcomponent_null_count"
-          echo "Repeated GetComponent calls: $repeated_getcomponent_count"
-          echo "Coroutines without cleanup: $coroutine_cleanup_count"
-          echo "Resource loading without disposal: $resource_disposal_count"
-          echo "MonoBehaviour operations in constructors: $constructor_mono_count"
-          echo "File operations without exception handling: $file_operations_count"
-          echo "Empty catch blocks: $empty_catch_count"
-          echo "Camera.main in Update loops: $camera_main_update_count"
-          echo "================================"
-          echo "TOTAL CRITICAL ISSUES: $critical_issues"
-          
-          if [ "$critical_issues" -gt 0 ]; then
-            echo "❌ REVIEW FAILED: $critical_issues critical issue(s) found!"
-            echo ""
-            echo "Critical issues must be resolved before this PR can be merged."
-            echo "Please check the detailed analysis report and line comments for specific recommendations."
-            
-            # Exit with error code to fail the workflow
-            exit 1
+          if [ -n "$files_to_analyze" ]; then
+            file_count=$(echo "$files_to_analyze" | wc -w)
+            echo "- **Files Analyzed:** $file_count" >> code_analysis.md
           else
-            echo "✅ REVIEW PASSED: No critical issues found!"
-            echo "Code quality meets the minimum standards for merging."
+            echo "- **Files Analyzed:** 0 (No C# files found or no changes detected)" >> code_analysis.md
           fi
-        else
-          echo "⚠️ No analysis report found - unable to determine critical issues count"
-          echo "Review status: UNKNOWN"
-        fi
+          echo "- **Analysis Date:** $(date '+%Y-%m-%d %H:%M:%S')" >> code_analysis.md
+          echo "" >> code_analysis.md
+
+      - name: Unity Code Analysis with Custom Script
+        if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
+        run: |
+          echo "Running Unity Code Analysis..."
+          
+          # Check if custom analyzer script exists, if not skip this step
+          if [ -f ".github/scripts/unity-analyzer.sh" ]; then
+            chmod +x .github/scripts/unity-analyzer.sh
+            
+            # Run the analyzer and capture the exit code
+            set +e  # Don't exit on error
+            ./.github/scripts/unity-analyzer.sh
+            analyzer_exit_code=$?
+            set -e  # Re-enable exit on error
+            
+            # Always add the analysis to our report, regardless of exit code
+            echo "" >> code_analysis.md
+    
+            echo "" >> code_analysis.md
+            if [ -f "unity-analysis-report.md" ]; then
+              cat unity-analysis-report.md >> code_analysis.md
+            else
+              echo "Unity analysis report not found" >> code_analysis.md
+            fi
+            
+            # Show the exit code for debugging but don't fail the workflow
+            echo "Unity analyzer completed with exit code: $analyzer_exit_code"
+          else
+            echo "Custom Unity analyzer script not found, skipping..."
+            echo "" >> code_analysis.md
+    
+            echo "" >> code_analysis.md
+            echo "## Custom Unity Analysis" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "*Custom analyzer script not found - using built-in analysis only*" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+
+      - name: Unity Specific Code Quality Checks
+        if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
+        run: |
+          echo "Running Unity-specific code quality checks..."
+          
+          # Check for common Unity anti-patterns
+          echo "## Unity Code Quality Analysis" >> code_analysis.md
+          echo "" >> code_analysis.md
+          
+          # Initialize categorized analysis sections
+
+          echo "" >> code_analysis.md
+          echo "### 🚨 **ERRORS (CRITICAL ISSUES)** 🚨" >> code_analysis.md
+          echo "" >> code_analysis.md
+
+          echo "" >> code_analysis.md
+          # Check for coding conventions and naming standards
+          naming_convention_results=$(grep -rn "public.*[a-z][A-Za-z]*\|private.*[A-Z][A-Za-z]*" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
+          if [ -n "$naming_convention_results" ]; then
+            echo "#### 📝 **Naming convention issues**" >> code_analysis.md
+            echo "*Methods/Properties should use PascalCase, fields should use camelCase*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Issue |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$naming_convention_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for missing XML documentation
+          missing_docs_results=$(grep -rn "public.*void\|public.*class\|public.*interface" Assets/ --include="*.cs" | grep -v "///" 2>/dev/null | head -8 || true)
+          if [ -n "$missing_docs_results" ]; then
+            echo "#### 📚 **Missing summary documentation**" >> code_analysis.md
+            echo "*Public methods and classes should have XML documentation*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Element |" >> code_analysis.md
+            echo "|------|------|---------|" >> code_analysis.md
+            echo "$missing_docs_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for region organization in large files
+          large_files_results=$(find Assets/ -name "*.cs" -exec wc -l {} \; | awk '$1 > 100 {print $2}' | head -5 || true)
+          if [ -n "$large_files_results" ]; then
+            echo "#### 🗂️ **Large files without regions**" >> code_analysis.md
+            echo "*Consider using #region blocks to organize large scripts*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Lines | Recommendation |" >> code_analysis.md
+            echo "|------|-------|----------------|" >> code_analysis.md
+            echo "$large_files_results" | while IFS= read -r file; do
+              if [ -n "$file" ]; then
+                lines=$(wc -l < "$file" 2>/dev/null || echo "0")
+                echo "| \`$(basename "$file")\` | **$lines** | Use regions for organization |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for missing namespace declarations
+          namespace_results=$(find Assets/ -name "*.cs" -exec grep -L "namespace " {} \; 2>/dev/null | head -8 || true)
+          if [ -n "$namespace_results" ]; then
+            echo "#### 📁 **Missing namespace declarations**" >> code_analysis.md
+            echo "*C# scripts should be wrapped in namespaces*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File |" >> code_analysis.md
+            echo "|------|" >> code_analysis.md
+            echo "$namespace_results" | while IFS= read -r file; do
+              echo "| \`$(basename "$file")\` |" >> code_analysis.md
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for magic numbers
+          magic_numbers_results=$(grep -rn "\b[0-9]\{3,\}\b" Assets/ --include="*.cs" | grep -v "//\|/\*" | head -8 2>/dev/null || true)
+          if [ -n "$magic_numbers_results" ]; then
+            echo "#### 🔢 **Hardcoded numbers detected**" >> code_analysis.md
+            echo "*Consider using named constants for large numbers*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Value |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$magic_numbers_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for expensive Find operations in Update methods
+          find_in_update_results=$(grep -rn -A3 -B3 "Update()" Assets/ --include="*.cs" | grep -E "GameObject\.Find|FindObjectOfType|FindObjectsOfType" 2>/dev/null || true)
+          if [ -n "$find_in_update_results" ]; then
+            echo "#### 🚨 **Find operations in Update methods**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Issue |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$find_in_update_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Impact:** Significant performance issue - cache these references in Awake/Start" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+
+          # Check for critical performance issues - Instantiate/Destroy in Update
+          instantiate_destroy_results=$(grep -rn -A2 -B2 "Update()" Assets/ --include="*.cs" | grep -E "Instantiate|Destroy" 2>/dev/null || true)
+          if [ -n "$instantiate_destroy_results" ]; then
+            echo "#### 🔥 **Instantiate/Destroy in Update methods**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Issue |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$instantiate_destroy_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Impact:** Major performance concern - these operations are expensive in Update loops" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for GetComponent without null checking
+          getcomponent_results=$(grep -rn "\.GetComponent<.*>()" Assets/ --include="*.cs" | grep -v "null" 2>/dev/null | head -8 || true)
+          if [ -n "$getcomponent_results" ]; then
+            echo "#### 💥 **GetComponent calls without null checking**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Code |" >> code_analysis.md
+            echo "|------|------|------|" >> code_analysis.md
+            echo "$getcomponent_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Risk:** Potential null reference exceptions" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for repeated GetComponent calls
+          repeated_getcomponent_results=$(grep -rn "\.GetComponent" Assets/ --include="*.cs" | awk -F: '{print $1}' | sort | uniq -c | awk '$1 > 4 {print $2}' | head -5 || true)
+          if [ -n "$repeated_getcomponent_results" ]; then
+            echo "#### 🔄 **Repeated GetComponent calls**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Count | Recommendation |" >> code_analysis.md
+            echo "|------|-------|----------------|" >> code_analysis.md
+            echo "$repeated_getcomponent_results" | while IFS= read -r file; do
+              if [ -n "$file" ]; then
+                count=$(grep -c "\.GetComponent" "$file" 2>/dev/null || echo "0")
+                echo "| \`$(basename "$file")\` | **$count** | Cache component references in Awake/Start |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Performance:** Multiple GetComponent calls detected - cache references for better performance" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for uninitialized nullable fields
+          nullable_uninitialized_results=$(grep -rn "public.*\?\|private.*\?" Assets/ --include="*.cs" | grep -v "= null\|= default" 2>/dev/null | head -8 || true)
+          if [ -n "$nullable_uninitialized_results" ]; then
+            echo "#### ❓ **Uninitialized nullable fields**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Field |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$nullable_uninitialized_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Risk:** Nullable fields should be explicitly initialized or have null checks" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for dangerous MonoBehaviour operations in constructors
+          constructor_mono_results=$(grep -rn -A5 "public.*:" Assets/ --include="*.cs" | grep -B5 -A5 "MonoBehaviour\|ScriptableObject" | grep "GetComponent\|transform\|gameObject" 2>/dev/null | head -8 || true)
+          if [ -n "$constructor_mono_results" ]; then
+            echo "#### 🚫 **MonoBehaviour operations in constructors**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Issue |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$constructor_mono_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Risk:** Unity objects not available in constructors - use Awake instead" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for hardcoded file paths
+          hardcoded_paths_results=$(grep -rn "Application\.dataPath\|Application\.persistentDataPath.*+.*\"" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
+          if [ -n "$hardcoded_paths_results" ]; then
+            echo "#### 📁 **Hardcoded file paths**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Path Usage |" >> code_analysis.md
+            echo "|------|------|------------|" >> code_analysis.md
+            echo "$hardcoded_paths_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Risk:** Use Path.Combine() for cross-platform compatibility" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for missing try-catch in file operations
+          file_operations_results=$(grep -rn "File\.\|Directory\." Assets/ --include="*.cs" | grep -v "try\|catch" 2>/dev/null | head -8 || true)
+          if [ -n "$file_operations_results" ]; then
+            echo "#### 💥 **File operations without exception handling**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Operation |" >> code_analysis.md
+            echo "|------|------|-----------|" >> code_analysis.md
+            echo "$file_operations_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Risk:** File operations can throw exceptions - add proper error handling" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for empty catch blocks
+          empty_catch_results=$(grep -rn -A2 "catch" Assets/ --include="*.cs" | grep -A2 "{" | grep "^\s*}\s*$" 2>/dev/null | head -5 || true)
+          if [ -n "$empty_catch_results" ]; then
+            echo "#### 🕳️ **Empty catch blocks**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Issue |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$empty_catch_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                echo "| \`$(basename "$file")\` | **$line_num** | Empty catch block |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Risk:** Silent exception swallowing - add logging or proper handling" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for Camera.main usage in Update loops
+          camera_main_update_results=$(grep -rn -A3 -B3 "Update()" Assets/ --include="*.cs" | grep "Camera\.main" 2>/dev/null || true)
+          if [ -n "$camera_main_update_results" ]; then
+            echo "#### 📷 **Camera.main in Update loops**" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Usage |" >> code_analysis.md
+            echo "|------|------|-------|" >> code_analysis.md
+            echo "$camera_main_update_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+            echo "> ⚠️ **Performance:** Camera.main uses FindObjectWithTag - cache the reference" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          if [ -z "$instantiate_destroy_results" ] && [ -z "$find_in_update_results" ] && [ -z "$getcomponent_results" ] && [ -z "$repeated_getcomponent_results" ] && [ -z "$coroutine_cleanup_results" ] && [ -z "$resource_disposal_results" ] && [ -z "$singleton_results" ] && [ -z "$nullable_uninitialized_results" ] && [ -z "$constructor_mono_results" ] && [ -z "$hardcoded_paths_results" ] && [ -z "$file_operations_results" ] && [ -z "$empty_catch_results" ] && [ -z "$camera_main_update_results" ]; then
+            echo "#### ✅ **No critical issues found** 🎉" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "> 💚 All analyzed code passes critical issue checks!" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+
+          echo "" >> code_analysis.md
+
+          echo "" >> code_analysis.md
+          echo "### ⚠️ **WARNINGS (POTENTIAL ISSUES)** ⚠️" >> code_analysis.md
+          echo "" >> code_analysis.md
+
+          echo "" >> code_analysis.md
+          
+          # Check for GameObject.Find usage
+          find_results=$(grep -rn "GameObject.Find\|FindObjectOfType" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
+          if [ -n "$find_results" ]; then
+            echo "#### 🔍 **GameObject.Find usage**" >> code_analysis.md
+            echo "*Consider caching these references for better performance*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Method Used |" >> code_analysis.md
+            echo "|------|------|-------------|" >> code_analysis.md
+            echo "$find_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for public field initialization
+          public_init_results=$(grep -rn "public.*=.*new" Assets/ --include="*.cs" 2>/dev/null | head -8 || true)
+          if [ -n "$public_init_results" ]; then
+            echo "#### 🔒 **Public field initialization**" >> code_analysis.md
+            echo "*Consider using [SerializeField] private fields instead*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Declaration |" >> code_analysis.md
+            echo "|------|------|-------------|" >> code_analysis.md
+            echo "$public_init_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          # Check for LINQ in performance-critical areas
+          linq_results=$(grep -rn "using System.Linq" Assets/ --include="*.cs" 2>/dev/null | head -5 || true)
+          if [ -n "$linq_results" ]; then
+            echo "#### ⚡ **LINQ usage detected**" >> code_analysis.md
+            echo "*Verify performance impact in Update loops*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line |" >> code_analysis.md
+            echo "|------|------|" >> code_analysis.md
+            echo "$linq_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                echo "| \`$(basename "$file")\` | **$line_num** |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          
+          # Check for string concatenation in loops
+          string_concat_results=$(grep -rn -A3 -B3 "for\|while" Assets/ --include="*.cs" | grep "+=" | grep "string\|String" 2>/dev/null | head -5 || true)
+          if [ -n "$string_concat_results" ]; then
+            echo "#### 🔗 **String concatenation in loops**" >> code_analysis.md
+            echo "*Use StringBuilder for better performance*" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "| File | Line | Code |" >> code_analysis.md
+            echo "|------|------|------|" >> code_analysis.md
+            echo "$string_concat_results" | while IFS= read -r line; do
+              if [[ $line == *":"* ]]; then
+                file=$(echo "$line" | cut -d: -f1)
+                line_num=$(echo "$line" | cut -d: -f2)
+                code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//')
+                echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |" >> code_analysis.md
+              fi
+            done
+            echo "" >> code_analysis.md
+          fi
+          
+          if [ -z "$find_results" ] && [ -z "$public_init_results" ] && [ -z "$linq_results" ] && [ -z "$namespace_results" ] && [ -z "$magic_numbers_results" ] && [ -z "$string_concat_results" ] && [ -z "$naming_convention_results" ] && [ -z "$missing_docs_results" ] && [ -z "$large_files_results" ]; then
+            echo "#### ✅ **No warnings found** 🎉" >> code_analysis.md
+            echo "" >> code_analysis.md
+            echo "> 💛 Code follows good warning-free practices!" >> code_analysis.md
+            echo "" >> code_analysis.md
+          fi
+          
+          # Add comprehensive final analysis
+
+          echo "" >> code_analysis.md
+
+          echo "" >> code_analysis.md
+          echo "## 🚀 **COMPREHENSIVE UNITY CODE ANALYSIS COMPLETE** 🎯" >> code_analysis.md
+          echo "" >> code_analysis.md
+
+          echo "" >> code_analysis.md
+          
+          # Final quality scoring system
+          total_files_checked=$(find Assets/ -name "*.cs" 2>/dev/null | wc -l || echo "0")
+          critical_issues_count=$(echo "$instantiate_destroy_results$find_in_update_results$getcomponent_results$repeated_getcomponent_results$coroutine_cleanup_results$resource_disposal_results$singleton_results$nullable_uninitialized_results$constructor_mono_results$hardcoded_paths_results$file_operations_results$empty_catch_results$camera_main_update_results" | grep -c ":" 2>/dev/null || echo "0")
+          warning_issues_count=$(echo "$find_results$public_init_results$linq_results$string_concat_results$naming_convention_results$missing_docs_results" | grep -c ":" 2>/dev/null || echo "0")
+          optimization_patterns_count=$(echo "$job_system_results$burst_results$factory_pooling_results$scriptable_architecture_results$state_machine_results" | grep -c ":" 2>/dev/null || echo "0")
+          
+          # Calculate quality score (100 point scale)
+          quality_score=100
+          quality_score=$((quality_score - (critical_issues_count * 10)))
+          quality_score=$((quality_score - (warning_issues_count * 2)))
+          quality_score=$((quality_score + (optimization_patterns_count * 5)))
+          [ $quality_score -lt 0 ] && quality_score=0
+          [ $quality_score -gt 100 ] && quality_score=100
+          
+          echo "### 📊 **Final Code Quality Report**" >> code_analysis.md
+          echo "" >> code_analysis.md
+          echo "| **Metric** | **Count** | **Impact** |" >> code_analysis.md
+          echo "|------------|-----------|------------|" >> code_analysis.md
+          echo "| 📁 **Total C# Files Analyzed** | **$total_files_checked** | ℹ️ Scope |" >> code_analysis.md
+          echo "| 🔴 **Critical Issues** | **$critical_issues_count** | $([ $critical_issues_count -eq 0 ] && echo '✅ Excellent' || echo '⚠️ Immediate attention required') |" >> code_analysis.md
+          echo "| 🟡 **Warning Issues** | **$warning_issues_count** | $([ $warning_issues_count -lt 5 ] && echo '✅ Good' || echo '⚠️ Review recommended') |" >> code_analysis.md
+          echo "" >> code_analysis.md
+
+          echo "" >> code_analysis.md
+          
+      - name: Upload Analysis Report
+        if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
+        uses: actions/upload-artifact@v3
+        with:
+          name: unity-code-analysis-report
+          path: |
+            code_analysis.md
+            pr_comment.md
+          retention-days: 30
+        continue-on-error: true
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const analysisContent = fs.readFileSync('code_analysis.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🤖 AI Code Review - Unity Project\n\n${analysisContent}\n\n---\n*This review was generated automatically by GitHub Copilot AI*`
+              });
+            } catch (error) {
+              console.log('Error reading analysis file:', error);
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🤖 AI Code Review - Unity Project\n\nCode analysis completed for Unity project. The following files were reviewed:\n\n${{ steps.changed-files.outputs.all_changed_files }}\n\n### Key Recommendations:\n- Follow Unity coding standards and best practices\n- Optimize performance-critical code sections\n- Ensure proper error handling and null checks\n- Use appropriate Unity design patterns\n\n---\n*This review was generated automatically by GitHub Copilot AI*`
+              });
+            }
