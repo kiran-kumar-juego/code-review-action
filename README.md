@@ -28,10 +28,6 @@ on:
   pull_request:
     paths:
       - "Assets/**/*.cs"
-  push:
-    branches: [ "main", "master", "development" ]
-    paths:
-      - "Assets/**/*.cs"
   workflow_dispatch:
     inputs:
       analyze_all_files:
@@ -272,18 +268,8 @@ You can use this action in different scenarios:
 
 1. **Pull Request Reviews** - Automatic review on PRs
 2. **Manual Analysis** - On-demand analysis via workflow_dispatch
-3. **Release Preparation** - Full codebase analysis before releases
 
-### Customize for Your Project
 
-```yaml
-- name: Unity Code Review with Custom Settings
-  uses: https://internal-git.juegostudio.net/git/UnityProjects/code-review-action@master
-  with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
-    analyze-all-files: ${{ github.event_name == 'workflow_dispatch' }}
-    unity-version: '2023.1.0f1'
-```
 
 ## Development
 
