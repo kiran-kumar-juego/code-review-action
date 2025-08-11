@@ -247,36 +247,6 @@ jobs:
 
 ```
 
-### Option 2: Git Submodule
-
-```bash
-# Add as submodule
-git submodule add https://internal-git.juegostudio.net/git/UnityProjects/code-review-action.git .github/actions/unity-code-review
-
-# Then in your workflow:
-- name: Checkout with submodules
-  uses: actions/checkout@v4
-  with:
-    fetch-depth: 0
-    submodules: recursive
-
-- name: Run Unity Code Review
-  uses: ./.github/actions/unity-code-review
-  with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-### Advanced Usage
-
-```yaml
-- name: Run Unity Code Review
-  uses: https://internal-git.juegostudio.net/git/UnityProjects/code-review-action@master
-  with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
-    analyze-all-files: 'true'
-    unity-version: '2022.3.0f1'
-    dotnet-version: '6.0.x'
-```
 
 ## Inputs
 
