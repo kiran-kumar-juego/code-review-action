@@ -25,7 +25,7 @@ Since this action is hosted on an internal Gitea server, you have two main optio
 # Unity Code Review Workflow
 # 
 # This workflow downloads and runs the Unity code review action from:
-# https://internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action
+# https://internal-git.juegostudio.net/git/UnityProjects/code-review-action
 #
 # To use this workflow in your Unity project:
 # 1. Copy this file to .github/workflows/ in your Unity project repository
@@ -113,7 +113,7 @@ jobs:
           mkdir -p ./.github/actions/code-review-action
           
           # Define the source repository for the code review action
-          CODE_REVIEW_REPO="https://internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action"
+          CODE_REVIEW_REPO="https://internal-git.juegostudio.net/git/UnityProjects/code-review-action"
           BRANCH="development"
           
           SUCCESS=false
@@ -144,15 +144,15 @@ jobs:
             
             # Test if token works
             if curl -sL -H "Authorization: token ${TOKEN}" \
-                 "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action" \
+                 "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action" \
                  -o test-response.json; then
               if grep -q '"name".*"code-review-action"' test-response.json 2>/dev/null; then
                 echo "  ✅ Token authentication works"
                 rm -f test-response.json
                 
                 for endpoint in \
-                  "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.tar.gz" \
-                  "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.zip"; do
+                  "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.tar.gz" \
+                  "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.zip"; do
                   echo "  Trying: $endpoint"
                   if curl -sL -H "Authorization: token ${TOKEN}" "$endpoint" -o temp-action.archive; then
                     if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
@@ -180,8 +180,8 @@ jobs:
           if [ "$SUCCESS" = false ] && [ -n "${GITHUB_TOKEN}" ] && [ "${GITHUB_TOKEN}" != "${TOKEN}" ]; then
             echo "🔄 Method 3: Trying with GITHUB_TOKEN..."
             for endpoint in \
-              "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.tar.gz" \
-              "https://internal-git.juegostudio.net/git/api/v1/repos/Arvind-Balaji/code-review-action/archive/${BRANCH}.zip"; do
+              "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.tar.gz" \
+              "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.zip"; do
               echo "  Trying: $endpoint"
               if curl -sL -H "Authorization: token ${GITHUB_TOKEN}" "$endpoint" -o temp-action.archive; then
                 if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
@@ -213,8 +213,8 @@ jobs:
               for auth_token in "${TOKEN}" "${GITHUB_TOKEN}"; do
                 if [ -n "${auth_token}" ]; then
                   for git_url in \
-                    "https://oauth2:${auth_token}@internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action.git" \
-                    "https://${auth_token}@internal-git.juegostudio.net/git/Arvind-Balaji/code-review-action.git"; do
+                    "https://oauth2:${auth_token}@internal-git.juegostudio.net/git/UnityProjects/code-review-action.git" \
+                    "https://${auth_token}@internal-git.juegostudio.net/git/UnityProjects/code-review-action.git"; do
                     echo "    Trying git clone with auth..."
                     if git clone -b "${BRANCH}" --depth 1 "$git_url" temp-clone 2>/dev/null; then
                       echo "    ✅ Git clone succeeded with auth"
