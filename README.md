@@ -4,7 +4,7 @@ A reusable GitHub Action for automated Unity C# code review with AI analysis, de
 
 ## 🏢 Gitea Integration
 
-This action is hosted on our internal Gitea server: `https://internal-git.juegostudio.net/git/kirankumar/code-review-action`
+This action is hosted on our internal Gitea server: `https://internal-git.juegostudio.net/git/UnityProjects/code-review-action`
 
 ## Features
 
@@ -435,7 +435,7 @@ git submodule add https://internal-git.juegostudio.net/git/UnityProjects/code-re
 
 ```yaml
 - name: Run Unity Code Review
-  uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
+  uses: https://internal-git.juegostudio.net/git/UnityProjects/code-review-action@master
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     analyze-all-files: 'true'
@@ -473,7 +473,7 @@ You can use this action in different scenarios:
 
 ```yaml
 - name: Unity Code Review with Custom Settings
-  uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
+  uses: https://internal-git.juegostudio.net/git/UnityProjects/code-review-action@master
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     analyze-all-files: ${{ github.event_name == 'workflow_dispatch' }}

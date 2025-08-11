@@ -174,7 +174,7 @@ review_settings:
 
 ### Basic Usage (Public Repository)
 ```yaml
-- uses: https://internal-git.juegostudio.net/git/kirankumar/code-review-action@master
+- uses: https://internal-git.juegostudio.net/git/UnityProjects/code-review-action@master
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
