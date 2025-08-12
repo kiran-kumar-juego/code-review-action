@@ -17,9 +17,9 @@ This action is hosted on our internal Gitea server: `https://internal-git.juegos
 
 ## Usage with Gitea
 
-Since this action is hosted on an internal Gitea server, you have two main options:
+Since this action is hosted on an internal Gitea server:
 
-### Option 1: Clone in Workflow (Recommended)
+### Clone in Workflow
 
 ```yaml
 name: Unity Code Review
