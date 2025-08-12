@@ -33,7 +33,7 @@ file_patterns:
     - "Assets/AppleAuth/**"
     - "Assets/Addons/**"
     - "Assets/JuegoTools/**"
-    - "Assets/MFPS/**"
+    - "Assets/Editor/**"
 
 # Project-specific settings
 project:
