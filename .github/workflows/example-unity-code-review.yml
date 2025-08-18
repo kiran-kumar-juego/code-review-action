@@ -5,12 +5,12 @@
 #
 # To use this workflow in your Unity project:
 # 1. Copy this file to .github/workflows/ in your Unity project repository
-# 2. Ensure you have a TOKEN secret set up with access to the code-review-action repository
+# 2. Ensure you have a GITHUB_TOKEN secret set up with access to the code-review-action repository
 # 3. Make sure your Unity project has C# files in the Assets/ folder
 # 4. The workflow will run on pull requests, pushes to main/master/development, or manual trigger
 #
 # Requirements:
-# - TOKEN secret with access to internal-git.juegostudio.net
+# - GITHUB_TOKEN secret with access to internal-git.juegostudio.net
 # - Unity project with Assets/**/*.cs files
 # - Internet access to download the code review action
 
@@ -75,7 +75,7 @@ jobs:
 
       - name: Setup and Prepare Environment
         env:
-          TOKEN: ${{ secrets.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p ./.github/actions/code-review-action
           
@@ -83,8 +83,8 @@ jobs:
           BRANCH="master"
           SUCCESS=false
 
-          if [ "$SUCCESS" = false ] && [ -n "${TOKEN}" ]; then
-            if curl -sL -H "Authorization: token ${TOKEN}" \
+          if [ "$SUCCESS" = false ] && [ -n "${GITHUB_TOKEN}" ]; then
+            if curl -sL -H "Authorization: token ${GITHUB_TOKEN}" \
                  "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action" \
                  -o test-response.json; then
               if grep -q '"name".*"code-review-action"' test-response.json 2>/dev/null; then
@@ -93,7 +93,7 @@ jobs:
                 for endpoint in \
                   "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.tar.gz" \
                   "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.zip"; do
-                  if curl -sL -H "Authorization: token ${TOKEN}" "$endpoint" -o temp-action.archive; then
+                  if curl -sL -H "Authorization: token ${GITHUB_TOKEN}" "$endpoint" -o temp-action.archive; then
                     if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
                       SUCCESS=true
                       break
@@ -108,7 +108,7 @@ jobs:
 
           # Check if download succeeded
           if [ "$SUCCESS" = false ]; then
-            echo "All download methods failed. Check repository access and TOKEN permissions."
+            echo "All download methods failed. Check repository access and GITHUB_TOKEN permissions."
             exit 1
           fi
 
@@ -162,7 +162,7 @@ jobs:
         id: analysis
         run: |
           # Set up environment variables
-          export TOKEN="${{ secrets.TOKEN }}"
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           export ANALYZE_ALL_FILES="${{ github.event.inputs.analyze_all_files || 'false' }}"
           export EVENT_NAME="${{ github.event_name }}"
           export CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
@@ -215,7 +215,7 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             
