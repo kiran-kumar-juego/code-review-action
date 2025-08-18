@@ -1,7 +1,7 @@
 # Unity Code Review Workflow
 # 
 # This workflow downloads and runs the Unity code review action from:
-# https://internal-git.juegostudio.net/git/UnityProjects/code-review-action
+# https://github.com/kiran-kumar-juego/code-review-action
 #
 # To use this workflow in your Unity project:
 # 1. Copy this file to .github/workflows/ in your Unity project repository
@@ -79,7 +79,7 @@ jobs:
         run: |
           mkdir -p ./.github/actions/code-review-action
           
-          CODE_REVIEW_REPO="https://internal-git.juegostudio.net/git/UnityProjects/code-review-action"
+          CODE_REVIEW_REPO="https://github.com/kiran-kumar-juego/code-review-action"
           BRANCH="master"
           SUCCESS=false
 
