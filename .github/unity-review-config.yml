@@ -5,10 +5,6 @@
 file_patterns:
   include:
     - "Assets/**/*.cs"
-    - "Assets/**/*.js"
-    - "Assets/**/*.ts"
-    - "Assets/**/*.shader"
-    - "ProjectSettings/**"
   exclude:
     - "Assets/ThirdParty/**"
     - "Assets/Plugins/**"
