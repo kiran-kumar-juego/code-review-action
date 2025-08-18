@@ -41,35 +41,35 @@ project:
 rules:
   performance:
     expensive_update_operations: "error"
-    repeated_getcomponent: "warning"
+    repeated_getcomponent: "error"
     string_concatenation_loops: "error"
     find_operations_frequency: "error"
     instantiate_destroy_loops: "error"
     
   naming_conventions:
-    private_field_underscore: "warning"
+    private_field_underscore: "error"
     pascal_case_methods: "error"
     pascal_case_classes: "error"
-    camel_case_variables: "warning"
-    namespace_structure: "info"
+    camel_case_variables: "error"
+    namespace_structure: "error"
     
   unity_best_practices:
     serialize_field_usage: "warning"
     null_reference_checking: "error"
     coroutine_lifecycle: "warning"
-    component_caching: "warning"
+    component_caching: "error"
     unity_events_usage: "info"
     
   code_organization:
-    region_usage: "info"
-    xml_documentation: "info"
-    magic_numbers: "info"
+    region_usage: "warning"
+    xml_documentation: "warning"
+    magic_numbers: "warning"
     access_modifiers: "warning"
     
   architecture:
-    interface_usage: "info"
+    interface_usage: "warning"
     singleton_overuse: "warning"
-    tight_coupling: "info"
+    tight_coupling: "warning"
 
 # Thresholds and limits
 thresholds:
@@ -92,6 +92,7 @@ conventions:
     constants: "ALL_CAPS"
     events: "OnEventName"
     interfaces: "IInterfaceName"
+    class: "ClassName"
 
 # Performance monitoring
 performance_monitoring:
