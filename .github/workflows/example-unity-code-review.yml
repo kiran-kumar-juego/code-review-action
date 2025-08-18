@@ -49,8 +49,8 @@ jobs:
       - name: Cache
         uses: actions/cache@v3
         with:
-        path: Library
-        key: Library-${{ gitea.repository }}   
+          path: Library
+          key: Library-${{ gitea.repository }}   
 
       - name: Get changed files
         id: changed-files
