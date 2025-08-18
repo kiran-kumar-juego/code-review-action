@@ -50,7 +50,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: Library
-          key: Library-${{ gitea.repository }}   
+          key: Library-${{ github.repository }}   
 
       - name: Get changed files
         id: changed-files
