@@ -639,7 +639,7 @@ jobs:
           
       - name: Upload Analysis Report
         if: (github.event_name == 'pull_request' && steps.changed-files.outputs.any_changed == 'true') || (github.event_name == 'workflow_dispatch' && steps.all-files.outputs.any_changed == 'true')
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: unity-code-analysis-report
           path: |
