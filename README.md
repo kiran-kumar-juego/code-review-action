@@ -50,6 +50,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+        path: Library
+        key: Library-${{ gitea.repository }}   
+
       - name: Get changed files
         id: changed-files
         run: |
@@ -240,6 +246,7 @@ jobs:
           name: unity-code-review-report
           path: unity-analysis-report.md
           retention-days: 30
+
 
 ```
 
