@@ -28,7 +28,7 @@ file_patterns:
     - "Assets/PlayFabSDK/**"
     - "Assets/AppleAuth/**"
     - "Assets/Addons/**"
-    # - "Assets/JuegoTools/**"
+    - "Assets/JuegoTools/**"
     - "Assets/Editor/**"
 
 # Project-specific settings
