@@ -92,7 +92,8 @@ jobs:
                 
                 for endpoint in \
                   "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.tar.gz" \
-                  "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.zip"; do
+                  "https://api.github.com/repos/kiran-kumar-juego/code-review-action/tarball/${BRANCH}" \
+                  "https://api.github.com/repos/kiran-kumar-juego/code-review-action/zipball/${BRANCH}"; do
                   if curl -sL -H "Authorization: token ${GITHUB_TOKEN}" "$endpoint" -o temp-action.archive; then
                     if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
                       SUCCESS=true
