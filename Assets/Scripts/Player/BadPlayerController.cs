@@ -1,64 +1,114 @@
 using System;
 using UnityEngine;
 
-// This script has multiple issues for testing the code review action
+// This script demonstrates multiple naming convention violations and Unity anti-patterns
 public class BadPlayerController : MonoBehaviour
 {
-    public int health = 100;  // Should use SerializeField instead of public
-    public Transform Target;  // Bad naming - should be camelCase for public fields or use SerializeField
+    // ❌ BAD: Public fields should use SerializeField, not expose internal state
+    public int health = 100;
+    public Transform Target;  // ❌ Should be camelCase for parameters or use SerializeField
     public float Speed = 5.0f;
     
-    private int x = 0;  // Single letter variable name - bad practice
-    private int damage;  // Should use _camelCase for private fields
+    // ❌ BAD: Private fields should use underscore prefix
+    private int x = 0;  // ❌ Also: single letter variable names
+    private int damage;
+    private bool isAlive;
+    private float moveSpeed;
+    
+    // ❌ BAD: Constants should be ALL_CAPS
+    private const int maxHealth = 100;
+    private const float jumpForce = 10f;
     
     void Start()
     {
-        // Missing null checks
+        // ❌ BAD: Local variables should be camelCase
+        int StartingHealth = maxHealth;
+        float InitialSpeed = 5.0f;
+        bool CanMove = true;
+        
+        health = StartingHealth;
+        Speed = InitialSpeed;
+        
+        // ❌ BAD: Missing null checks
         Target.position = Vector3.zero;
     }
     
     void Update()
     {
-        // Expensive operations in Update - bad for performance
+        // ❌ BAD: Expensive operations in Update - performance killer
         GameObject enemy = GameObject.Find("Enemy");
         GameObject.FindObjectOfType<Enemy>();
         
-        // String concatenation in Update - creates garbage
+        // ❌ BAD: String concatenation in Update - creates garbage
         string message = "Health: " + health + " Speed: " + Speed;
         
-        // Magic numbers
+        // ❌ BAD: Magic numbers
         if (health < 50)
         {
-            Speed = 2.5f;
+            // ❌ BAD: Local variable should be camelCase
+            float PanicSpeed = Speed * 2;
+            moveSpeed = PanicSpeed;
         }
         
-        // Instantiation in Update - bad practice
+        // ❌ BAD: More expensive operations
+        Camera.main.transform.position = transform.position;
+        
+        // ❌ BAD: Instantiation in Update - bad practice
         if (Input.GetKeyDown(KeyCode.Space))
         {
             Instantiate(enemy);
         }
     }
     
-    // Method should be PascalCase
-    public void takeDamage(int Amount)  // Parameter should be camelCase
+    // ❌ BAD: Method should use PascalCase
+    public void takeDamage(int Amount)  // ❌ Parameter should be camelCase
     {
-        health -= Amount;
-        if (health <= 0)
+        // ❌ BAD: Local variables should be camelCase
+        int RemainingHealth = health - Amount;
+        bool WillDie = RemainingHealth <= 0;
+        
+        health = RemainingHealth;
+        
+        if (WillDie)
         {
             Destroy(gameObject);
         }
     }
     
-    // Missing XML documentation for public method
+    // ❌ BAD: Method should use PascalCase, missing documentation
     public void Heal(int amount)
     {
-        health += amount;
+        // ❌ BAD: Local variable should be camelCase
+        int NewHealth = health + amount;
+        health = NewHealth;
+        
+        // ❌ BAD: Magic number
         if (health > 100) health = 100;
+    }
+    
+    // ❌ BAD: Method should use PascalCase
+    private void movePlayer(float Speed)  // ❌ Parameter should be camelCase
+    {
+        // ❌ BAD: Local variables should be camelCase
+        Vector3 NewPosition = transform.position;
+        float DeltaTime = Time.deltaTime;
+        
+        NewPosition += Vector3.forward * Speed * DeltaTime;
+        transform.position = NewPosition;
     }
 }
 
-// Missing interface - could implement IHealth interface
-public class Enemy : MonoBehaviour
+// ❌ BAD: Class should use PascalCase, missing documentation
+public class enemy : MonoBehaviour
 {
-    public int Health = 100;
+    // ❌ BAD: Public field exposure, should use properties
+    public int enemyHealth = 50;
+    public float attackDamage = 10f;
+    
+    // ❌ BAD: Private fields should have underscore prefix
+    private bool isAttacking;
+    private float lastAttackTime;
+    
+    // ❌ BAD: Constants should be ALL_CAPS
+    private const float attackCooldown = 2.0f;
 }

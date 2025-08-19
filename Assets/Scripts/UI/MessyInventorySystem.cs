@@ -1,62 +1,154 @@
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
 
-// This UI script has various issues to test the code review action
+// ❌ BAD: Class should have proper documentation
 public class MessyInventorySystem : MonoBehaviour
 {
-    public List<string> items;  // Should use SerializeField
-    public int maxItems = 20;
+    // ❌ BAD: Public field exposure, should use SerializeField
+    public List<Item> Items;
+    public Transform Content;
+    public GameObject ItemPrefab;
+    public Button AddButton;
     
-    private int c = 0;  // Single letter variable
-    private int selectedIndex;  // Should use _camelCase
+    // ❌ BAD: Private fields should have underscore prefix
+    private Dictionary<string, Item> itemCache;
+    private bool isDirty;
+    private int maxItems;
+    private float updateTimer;
+    private int c = 0;  // ❌ Single letter variable
+    
+    // ❌ BAD: Constants should be ALL_CAPS
+    private const int defaultMaxItems = 50;
+    private const float refreshRate = 0.1f;
+    
+    // ❌ BAD: Event should use PascalCase
+    public event System.Action<Item> onItemAdded;
     
     void Start()
     {
-        items = new List<string>();
+        // ❌ BAD: Local variables should be camelCase
+        int StartingCapacity = defaultMaxItems;
+        bool CanAddItems = true;
+        float UpdateInterval = refreshRate;
+        
+        maxItems = StartingCapacity;
+        isDirty = CanAddItems;
+        updateTimer = UpdateInterval;
+        
+        // ❌ BAD: Direct assignment without null check
+        Items = new List<Item>();
+        itemCache = new Dictionary<string, Item>();
+        
+        // ❌ BAD: Missing null check
+        AddButton.onClick.AddListener(AddRandomItem);
     }
     
     void Update()
     {
-        // Expensive operations in Update
-        GameObject inventoryUI = GameObject.Find("InventoryUI");
+        // ❌ BAD: Expensive operations in Update
+        UpdateInventoryDisplay();
         
-        // String building in Update
-        string display = "";
-        for (int i = 0; i < items.Count; i++)
+        // ❌ BAD: String concatenation in Update
+        string DebugInfo = "Items: " + Items.Count + " Max: " + maxItems;
+        
+        // ❌ BAD: Finding objects every frame
+        GameObject InventoryPanel = GameObject.Find("InventoryPanel");
+        Canvas MainCanvas = GameObject.FindObjectOfType<Canvas>();
+        
+        // ❌ BAD: Local variables should be camelCase
+        float DeltaTime = Time.deltaTime;
+        updateTimer += DeltaTime;
+        
+        // ❌ BAD: Magic number
+        if (updateTimer > 0.1f)
         {
-            display += items[i] + "\n";
+            // ❌ BAD: Expensive operation
+            RefreshAllItems();
+            updateTimer = 0f;
+        }
+    }
+    
+    // ❌ BAD: Method should use PascalCase
+    public void addItem(Item NewItem)  // ❌ Parameter should be camelCase
+    {
+        // ❌ BAD: Local variables should be camelCase
+        bool CanAdd = Items.Count < maxItems;
+        string ItemKey = NewItem.name;
+        
+        if (CanAdd)
+        {
+            Items.Add(NewItem);
+            itemCache[ItemKey] = NewItem;
+            
+            // ❌ BAD: Null check after usage
+            if (onItemAdded != null)
+                onItemAdded(NewItem);
+        }
+    }
+    
+    // ❌ BAD: Method should use PascalCase
+    private void AddRandomItem()
+    {
+        // ❌ BAD: Local variables should be camelCase
+        Item RandomItem = new Item();
+        string ItemName = "Item_" + Items.Count;
+        int ItemValue = UnityEngine.Random.Range(1, 100);
+        
+        RandomItem.name = ItemName;
+        RandomItem.value = ItemValue;
+        
+        addItem(RandomItem);
+    }
+    
+    // ❌ BAD: Method should use PascalCase
+    private void UpdateInventoryDisplay()
+    {
+        // ❌ BAD: Expensive operation called every frame
+        foreach (Transform Child in Content)
+        {
+            if (Child != Content)
+            {
+                // ❌ BAD: Destroying objects in Update
+                Destroy(Child.gameObject);
+            }
         }
         
-        // Magic numbers
-        if (items.Count > 15)
+        // ❌ BAD: Instantiating objects in Update
+        foreach (Item CurrentItem in Items)
         {
-            Debug.Log("Inventory almost full!");
+            // ❌ BAD: Local variable should be camelCase
+            GameObject NewItemUI = Instantiate(ItemPrefab, Content);
+            Text ItemText = NewItemUI.GetComponent<Text>();
+            
+            // ❌ BAD: String concatenation
+            ItemText.text = CurrentItem.name + " - Value: " + CurrentItem.value;
         }
     }
     
-    // Method naming should be PascalCase
-    public void addItem(string Item)  // Parameter should be camelCase
+    // ❌ BAD: Method should use PascalCase
+    private void RefreshAllItems()
     {
-        if (items.Count < maxItems)
+        // ❌ BAD: Creating garbage in tight loop
+        for (int Index = 0; Index < Items.Count; Index++)  // ❌ Local variable should be camelCase
         {
-            items.Add(Item);
+            // ❌ BAD: String operations in loop
+            string UpdatedName = "Updated_" + Items[Index].name;
+            Items[Index].name = UpdatedName;
         }
     }
+}
+
+// ❌ BAD: Class should use PascalCase (though this one is correct, adding violations)
+[System.Serializable]
+public class Item
+{
+    // ❌ BAD: Public fields should follow proper naming conventions
+    public string name;
+    public int value;
+    public Sprite Icon;  // ❌ Should be camelCase for public fields or use properties
     
-    // Missing documentation
-    public void RemoveItem(int index)
-    {
-        if (index >= 0 && index < items.Count)
-        {
-            items.RemoveAt(index);
-        }
-    }
-    
-    // No null checking
-    public void UseItem(int index)
-    {
-        string item = items[index];
-        // Use item logic here
-        items.RemoveAt(index);
-    }
+    // ❌ BAD: Constants should be ALL_CAPS
+    public const int maxValue = 1000;
 }

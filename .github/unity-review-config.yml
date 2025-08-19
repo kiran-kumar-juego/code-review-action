@@ -45,13 +45,20 @@ rules:
     string_concatenation_loops: "error"
     find_operations_frequency: "error"
     instantiate_destroy_loops: "error"
+    camera_main_usage: "error"
     
   naming_conventions:
-    private_field_underscore: "error"
-    pascal_case_methods: "error"
-    pascal_case_classes: "error"
-    camel_case_variables: "error"
-    namespace_structure: "error"
+    local_variables_camelcase: "error"
+    constants_all_caps: "error"
+    member_fields_underscore: "error"
+    public_properties_pascalcase: "error"
+    methods_pascalcase: "error"
+    classes_pascalcase: "error"
+    parameters_camelcase: "error"
+    interfaces_pascalcase: "error"
+    unity_class_naming: "error"
+    scriptableobject_naming: "warning"
+    monobehaviour_naming: "warning"
     
   unity_best_practices:
     serialize_field_usage: "warning"
@@ -59,17 +66,22 @@ rules:
     coroutine_lifecycle: "warning"
     component_caching: "error"
     unity_events_usage: "info"
+    public_field_encapsulation: "warning"
     
   code_organization:
     region_usage: "warning"
     xml_documentation: "warning"
     magic_numbers: "warning"
     access_modifiers: "warning"
+    file_size_limits: "error"
+    class_field_count: "warning"
     
   architecture:
     interface_usage: "warning"
     singleton_overuse: "warning"
     tight_coupling: "warning"
+    empty_catch_blocks: "warning"
+    hardcoded_paths: "warning"
 
 # Thresholds and limits
 thresholds:
@@ -88,20 +100,162 @@ conventions:
     - "Properties"
   
   naming_patterns:
-    private_fields: "_camelCase"
-    constants: "ALL_CAPS"
-    events: "OnEventName"
-    interfaces: "IInterfaceName"
-    class: "ClassName"
+    local_variables: 
+      pattern: "camelCase"
+      example: "int health = 100;"
+      description: "Variables declared within methods should start with lowercase"
+    constants: 
+      pattern: "ALL_CAPS"
+      example: "const int MAX_HEALTH;"
+      description: "Constants should be all uppercase with underscores"
+    member_fields: 
+      pattern: "_camelCase"
+      example: "private int _count = 5;"
+      description: "Class member variables should start with underscore"
+    public_properties: 
+      pattern: "PascalCase"
+      example: "public int Score { get; set; }"
+      description: "Public properties and global variables should use PascalCase"
+    methods: 
+      pattern: "PascalCase"
+      example: "public void StartGame()"
+      description: "Methods should start with capital letter"
+    classes: 
+      pattern: "PascalCase"
+      example: "public class PlayerController"
+      description: "Class names should use PascalCase (start with capital letter)"
+      unity_examples:
+        - "public class PlayerController : MonoBehaviour"
+        - "public class GameManager : Singleton<GameManager>"
+        - "public class InventorySystem : ScriptableObject"
+        - "public class WeaponData : ScriptableObject"
+        - "[System.Serializable] public class PlayerStats"
+      bad_examples:
+        - "public class playerController"  # Should start with capital
+        - "public class player_controller" # Should not use underscores
+        - "public class PLAYERCONTROLLER"  # Should not be all caps
+    parameters: 
+      pattern: "camelCase"
+      example: "void Move(float speed)"
+      description: "Method parameters should use camelCase"
+    interfaces: 
+      pattern: "IPascalCase"
+      example: "public interface IMovable"
+      description: "Interfaces should start with 'I' followed by PascalCase"
+    events: 
+      pattern: "OnPascalCase"
+      example: "public event Action OnPlayerDied"
+      description: "Events should start with 'On' followed by PascalCase"
+
+# Naming convention enforcement rules
+naming_enforcement:
+  local_variables:
+    detect_pattern: "^[A-Z]"
+    within_context: "method_body"
+    severity: "error"
+    message: "Local variable should use camelCase (start with lowercase)"
+    
+  constants:
+    detect_pattern: "const.*[a-z]"
+    severity: "error" 
+    message: "Constant should be ALL_CAPS with underscores"
+    
+  member_fields:
+    detect_pattern: "(private|protected).*[^_][a-zA-Z].*;"
+    exclude_pattern: "const|readonly|static"
+    severity: "error"
+    message: "Member field should start with underscore (_)"
+    
+  public_properties:
+    detect_pattern: "public.*[a-z][a-zA-Z0-9]*"
+    exclude_pattern: "const|readonly|method"
+    severity: "error"
+    message: "Public property should use PascalCase"
+    
+  methods:
+    detect_pattern: "(public|private|protected).*[a-z][a-zA-Z0-9]*\\("
+    severity: "error"
+    message: "Method should use PascalCase"
+    
+  classes:
+    detect_pattern: "class [a-z]"
+    also_detect: 
+      - "class [a-z_]"        # Detect lowercase start or underscores
+      - "class [A-Z_]*_"      # Detect underscores in names
+      - "class [A-Z]+$"       # Detect all caps
+    severity: "error"
+    message: "Class should use PascalCase (CapitalCase without underscores)"
+    examples:
+      correct: "public class PlayerController"
+      incorrect: 
+        - "public class playerController"  # lowercase start
+        - "public class player_controller" # underscores
+        - "public class PLAYERCONTROLLER"  # all caps
+    unity_specific:
+      monobehaviour_classes: "Should inherit from MonoBehaviour for Unity components"
+      scriptableobject_classes: "Should inherit from ScriptableObject for data assets"
+      singleton_classes: "Should follow Singleton<T> pattern if needed"
+    
+  parameters:
+    detect_pattern: "\\([^)]*[A-Z][a-zA-Z0-9]*"
+    exclude_pattern: "class|interface"
+    severity: "error"
+    message: "Parameter should use camelCase"
 
 # Performance monitoring
 performance_monitoring:
   track_allocations: true
   check_gc_pressure: true
   monitor_frame_time: true
+  allocation_threshold: 50
+  gc_pressure_threshold: 20
+  
+  # Specific performance patterns to detect
+  patterns:
+    expensive_update_calls:
+      - "GameObject.Find"
+      - "FindObjectOfType"
+      - "GetComponent"
+      - "Camera.main"
+    memory_allocation_sources:
+      - "new "
+      - ".ToString()"
+      - "string concatenation"
+    gc_pressure_indicators:
+      - ".Add("
+      - "Array.Resize"
+      - "List.*= *new"
   
 # Code quality metrics
 quality_metrics:
   calculate_complexity: true
   track_test_coverage: false
   measure_maintainability: true
+  
+  complexity_thresholds:
+    method_complexity: 15
+    file_complexity: 100
+    class_complexity: 50
+    
+  maintainability_factors:
+    - naming_consistency
+    - code_organization
+    - documentation_coverage
+    - test_coverage
+    - performance_patterns
+    
+# Code analysis preferences
+analysis_preferences:
+  show_examples: true
+  include_best_practices: true
+  generate_detailed_reports: true
+  provide_quick_fixes: true
+  
+  report_sections:
+    - critical_issues
+    - performance_warnings
+    - naming_violations
+    - code_organization
+    - architecture_review
+    - quality_metrics
+    - naming_convention_guide
