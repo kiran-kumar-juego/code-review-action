@@ -10,7 +10,7 @@
 # 4. The workflow will run on pull requests, pushes to main/master/development, or manual trigger
 #
 # Requirements:
-# - GITHUB_TOKEN secret with access to internal-git.juegostudio.net
+# - GITHUB_TOKEN secret with access to github.com/kiran-kumar-juego/code-review-action
 # - Unity project with Assets/**/*.cs files
 # - Internet access to download the code review action
 
