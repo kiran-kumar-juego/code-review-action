@@ -237,7 +237,7 @@ jobs:
 
       - name: Upload Analysis Report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: unity-code-review-report
           path: unity-analysis-report.md
