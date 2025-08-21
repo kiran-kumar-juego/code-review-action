@@ -1,27 +1,7 @@
-# Unity Code Review Workflow
-# 
-# This workflow downloads and runs the Unity code review action from:
-# https://github.com/kiran-kumar-juego/code-review-action
-#
-# To use this workflow in your Unity project:
-# 1. Copy this file to .github/workflows/ in your Unity project repository
-# 2. Ensure you have a GITHUB_TOKEN secret set up with access to the code-review-action repository
-# 3. Make sure your Unity project has C# files in the Assets/ folder
-# 4. The workflow will run on pull requests, pushes to main/master/development, or manual trigger
-#
-# Requirements:
-# - GITHUB_TOKEN secret with access to github.com/kiran-kumar-juego/code-review-action
-# - Unity project with Assets/**/*.cs files
-# - Internet access to download the code review action
-
-name: Unity Code Review - Sample Project
+name: Unity Code Review
 
 on:
   pull_request:
-    paths:
-      - "Assets/**/*.cs"
-  push:
-    branches: [ "main", "master", "development" ]
     paths:
       - "Assets/**/*.cs"
   workflow_dispatch:
@@ -45,7 +25,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - name: Cache
         uses: actions/cache@v3
         with:
@@ -243,3 +223,4 @@ jobs:
           name: unity-code-review-report
           path: unity-analysis-report.md
           retention-days: 30
+

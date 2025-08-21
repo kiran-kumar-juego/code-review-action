@@ -50,6 +50,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+        path: Library
+        key: Library-${{ gitea.repository }}   
+
       - name: Get changed files
         id: changed-files
         run: |
@@ -241,6 +247,7 @@ jobs:
           path: unity-analysis-report.md
           retention-days: 30
 
+
 ```
 
 
@@ -248,7 +255,7 @@ jobs:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `github-token` | GitHub token for API access | Yes | - |
+| `github-token` | Gitea token for API access, add TOKEN in secrets | Yes | - |
 | `analyze-all-files` | Analyze all C# files instead of just changed files | No | `false` |
 | `unity-version` | Unity version to use for analysis | No | `2022.3.0f1` |
 | `dotnet-version` | .NET version to use | No | `6.0.x` |
@@ -269,25 +276,6 @@ You can use this action in different scenarios:
 1. **Pull Request Reviews** - Automatic review on PRs
 2. **Manual Analysis** - On-demand analysis via workflow_dispatch
 
-
-
-## Development
-
-### Local Testing
-
-To test this action locally:
-
-1. Clone the repository
-2. Create a test Unity project in the `test/` directory
-3. Run the workflow using `act` or GitHub's local runner
-
-### Contributing
-
-1. Fork this repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
 
 ## License
 
