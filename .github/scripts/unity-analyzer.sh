@@ -70,6 +70,31 @@ extract_naming_pattern() {
     " "$config_file"
 }
 
+# Function to extract rule severity from config
+extract_rule_severity() {
+    local rule_path="$1"
+    local config_file="$2"
+    
+    if [ ! -f "$config_file" ]; then
+        echo "error"  # default severity
+        return
+    fi
+    
+    # Extract severity using awk
+    awk "
+    /^rules:/ { in_rules = 1; next }
+    /^[a-zA-Z]/ && in_rules && !/^  / { in_rules = 0 }
+    /^  naming_conventions:/ && in_rules { in_naming = 1; next }
+    /^  [a-zA-Z]/ && in_rules && in_naming { in_naming = 0 }
+    /^    ${rule_path}:/ && in_naming { 
+        gsub(/^    ${rule_path}: \"/, \"\"); 
+        gsub(/\"$/, \"\"); 
+        print; 
+        exit 
+    }
+    " "$config_file" | head -1
+}
+
 # Load configuration values from YAML if available
 if [ -f "$CONFIG_FILE" ]; then
     echo "📋 Loading configuration from: $CONFIG_FILE" >&2
@@ -83,12 +108,16 @@ if [ -f "$CONFIG_FILE" ]; then
     GC_PRESSURE_THRESHOLD=$(extract_config_value "gc_pressure_threshold" "20" "$CONFIG_FILE")
     METHOD_COMPLEXITY=$(extract_config_value "method_complexity" "15" "$CONFIG_FILE")
     
+    # Load naming convention rule severities
+    PUBLIC_PROPERTIES_SEVERITY=$(extract_rule_severity "public_properties_pascalcase" "$CONFIG_FILE")
+    
     echo "🔧 Configuration loaded successfully" >&2
 else
     echo "⚠️ Configuration file not found, using defaults" >&2
     ALLOCATION_THRESHOLD=50
     GC_PRESSURE_THRESHOLD=20
     METHOD_COMPLEXITY=15
+    PUBLIC_PROPERTIES_SEVERITY="error"
 fi
 
 # Function to extract patterns from YAML config
@@ -434,7 +463,8 @@ naming_violations_results=""
 while IFS= read -r file; do
     if [[ -f "$file" ]]; then
         # Check for private/protected fields without underscore prefix
-        private_field_lines=$(grep -n "private.*[^_][a-zA-Z][a-zA-Z0-9]*;" "$file" 2>/dev/null | grep -v "_" | head -5)
+        # Only match lines that start with 'private' (not properties with 'private set')
+        private_field_lines=$(grep -n "^\s*private.*[^_][a-zA-Z][a-zA-Z0-9]*;" "$file" 2>/dev/null | grep -v "_" | head -5)
         if [ -n "$private_field_lines" ]; then
             while IFS= read -r field_line; do
                 if [[ $field_line == *":"* ]]; then
@@ -444,7 +474,7 @@ while IFS= read -r file; do
             CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
         fi
         
-        protected_field_lines=$(grep -n "protected.*[^_][a-zA-Z][a-zA-Z0-9]*;" "$file" 2>/dev/null | grep -v "_" | head -5)
+        protected_field_lines=$(grep -n "^\s*protected.*[^_][a-zA-Z][a-zA-Z0-9]*;" "$file" 2>/dev/null | grep -v "_" | head -5)
         if [ -n "$protected_field_lines" ]; then
             while IFS= read -r field_line; do
                 if [[ $field_line == *":"* ]]; then
@@ -476,8 +506,24 @@ while IFS= read -r file; do
             CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
         fi
         
-        # Check for public fields not in PascalCase (should be properties)
-        public_field_lines=$(grep -n "public.*[a-z][a-zA-Z0-9]*;" "$file" 2>/dev/null | grep -v "const\|readonly" | head -3)
+        # Check for public properties not in PascalCase
+        # Only exclude properties with private get; or private set; accessors
+        # Find public properties that start with lowercase (camelCase)
+        public_property_lines=$(grep -n "^\s*public\s\+[a-zA-Z_<>]*\s\+[a-z][a-zA-Z0-9]*\s*{.*\(get\|set\)" "$file" 2>/dev/null | grep -v "const\|readonly\|static" | head -5)
+        if [ -n "$public_property_lines" ]; then
+            while IFS= read -r property_line; do
+                if [[ $property_line == *":"* ]]; then
+                    # Check if this property has private get or private set
+                    if [[ $property_line != *"private get"* ]] && [[ $property_line != *"private set"* ]]; then
+                        naming_violations_results="${naming_violations_results}$file:$property_line:Public property should use PascalCase\n"
+                        CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
+                    fi
+                fi
+            done <<< "$public_property_lines"
+        fi
+        
+        # Check for public fields not in PascalCase (non-property fields)
+        public_field_lines=$(grep -n "public.*[a-z][a-zA-Z0-9]*;" "$file" 2>/dev/null | grep -v "const\|readonly\|static\|(\|void\|int\|float\|string\|bool\|{" | head -3)
         if [ -n "$public_field_lines" ]; then
             while IFS= read -r field_line; do
                 if [[ $field_line == *":"* ]]; then
@@ -487,14 +533,26 @@ while IFS= read -r file; do
             CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
         fi
         
-        # Check for non-PascalCase methods
-        method_lines=$(grep -n "public.*[a-z][a-zA-Z0-9]*(" "$file" 2>/dev/null | grep -v "^[[:space:]]*//\|^[[:space:]]*\*" | head -3)
+        # Check for non-PascalCase methods (camelCase methods)
+        # Match methods that have camelCase names (start with lowercase after the return type)
+        method_lines=$(grep -n "^\s*public\s\+[a-zA-Z_<>]*\s\+[a-z][a-zA-Z0-9]*\s*(" "$file" 2>/dev/null | grep -v "^[[:space:]]*//\|^[[:space:]]*\*" | head -5)
         if [ -n "$method_lines" ]; then
             while IFS= read -r method_line; do
                 if [[ $method_line == *":"* ]]; then
                     naming_violations_results="${naming_violations_results}$file:$method_line:Method should use PascalCase\n"
                 fi
             done <<< "$method_lines"
+            CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
+        fi
+        
+        # Check for camelCase constructors (constructors should also be PascalCase)
+        constructor_lines=$(grep -n "^\s*public\s\+[a-z][a-zA-Z0-9]*\s*(" "$file" 2>/dev/null | grep -v "^[[:space:]]*//\|^[[:space:]]*\*" | head -3)
+        if [ -n "$constructor_lines" ]; then
+            while IFS= read -r constructor_line; do
+                if [[ $constructor_line == *":"* ]]; then
+                    naming_violations_results="${naming_violations_results}$file:$constructor_line:Constructor should use PascalCase\n"
+                fi
+            done <<< "$constructor_lines"
             CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
         fi
         
@@ -532,7 +590,8 @@ while IFS= read -r file; do
         fi
         
         # Check for parameter naming (should be camelCase)
-        param_lines=$(grep -n "([^)]*[A-Z][a-zA-Z0-9]*[[:space:]]*[a-zA-Z0-9]*)" "$file" 2>/dev/null | head -3)
+        # Only check actual method/constructor parameter declarations, not comments or strings
+        param_lines=$(grep -n "^\s*\(public\|private\|protected\|internal\).*([^)]*[A-Z][a-zA-Z0-9]*[[:space:]]*[a-zA-Z0-9]*)" "$file" 2>/dev/null | grep -v "^[[:space:]]*//\|^[[:space:]]*\*" | head -3)
         if [ -n "$param_lines" ]; then
             while IFS= read -r param_line; do
                 if [[ $param_line == *":"* ]] && [[ $param_line != *"class"* ]]; then
@@ -633,39 +692,6 @@ if [ -n "$find_results" ]; then
     echo "| File | Line | Method Used |"
     echo "|------|------|-------------|"
     echo -e "$find_results" | while IFS= read -r line; do
-        if [[ $line == *":"* ]]; then
-            file=$(echo "$line" | cut -d: -f1)
-            line_num=$(echo "$line" | cut -d: -f2)
-            code=$(echo "$line" | cut -d: -f3- | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-            echo "| \`$(basename "$file")\` | **$line_num** | \`$code\` |"
-        fi
-    done
-    echo ""
-fi
-
-# Check for public field initialization
-public_init_results=""
-while IFS= read -r file; do
-    if [[ -f "$file" ]]; then
-        public_lines=$(grep -n "public.*=.*new" "$file" 2>/dev/null | head -5)
-        if [ -n "$public_lines" ]; then
-            while IFS= read -r public_line; do
-                if [[ $public_line == *":"* ]]; then
-                    public_init_results="${public_init_results}$file:$public_line\n"
-                fi
-            done <<< "$public_lines"
-            WARNING_ISSUES=$((WARNING_ISSUES + 1))
-        fi
-    fi
-done < "$FILES_TO_ANALYZE"
-
-if [ -n "$public_init_results" ]; then
-    echo "#### 🔒 **Public field initialization**"
-    echo "*Consider using [SerializeField] private fields instead*"
-    echo ""
-    echo "| File | Line | Declaration |"
-    echo "|------|------|-------------|"
-    echo -e "$public_init_results" | while IFS= read -r line; do
         if [[ $line == *":"* ]]; then
             file=$(echo "$line" | cut -d: -f1)
             line_num=$(echo "$line" | cut -d: -f2)

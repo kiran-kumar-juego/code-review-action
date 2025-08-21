@@ -168,7 +168,7 @@ naming_enforcement:
     
   public_properties:
     detect_pattern: "public.*[a-z][a-zA-Z0-9]*"
-    exclude_pattern: "const|readonly|method"
+    exclude_pattern: "const|readonly|method|private get|private set|{ get|{ set"
     severity: "error"
     message: "Public property should use PascalCase"
     
