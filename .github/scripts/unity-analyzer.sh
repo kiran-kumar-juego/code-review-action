@@ -745,7 +745,7 @@ while IFS= read -r file; do
 done < "$FILES_TO_ANALYZE"
 
 if [ -n "$magic_numbers_results" ]; then
-    echo "#### 🔢 **Magic numbers in return statements**"
+    echo "#### 🔢 **Hardcoded numbers in return statements**"
     echo "*Consider using named constants for numeric return values (excluding 0, 1, true, false)*"
     echo ""
     echo "| File | Line | Value |"
