@@ -727,11 +727,12 @@ if [ -n "$namespace_results" ]; then
     echo ""
 fi
 
-# Check for magic numbers
+# Check for magic numbers in return statements
 magic_numbers_results=""
 while IFS= read -r file; do
     if [[ -f "$file" ]]; then
-        magic_lines=$(grep -n "\b[0-9]\{3,\}\b" "$file" 2>/dev/null | grep -v "//\|/\*" | head -5)
+        # Look for return statements with numeric values (including negative numbers)
+        magic_lines=$(grep -n "return\s\+\-\?[0-9]\+\s*;" "$file" 2>/dev/null | grep -v "//\|/\*\|return 0\|return 1\|return true\|return false" | head -5)
         if [ -n "$magic_lines" ]; then
             while IFS= read -r magic_line; do
                 if [[ $magic_line == *":"* ]]; then
@@ -744,8 +745,8 @@ while IFS= read -r file; do
 done < "$FILES_TO_ANALYZE"
 
 if [ -n "$magic_numbers_results" ]; then
-    echo "#### 🔢 **Hardcoded numbers detected**"
-    echo "*Consider using named constants for large numbers*"
+    echo "#### 🔢 **Magic numbers in return statements**"
+    echo "*Consider using named constants for numeric return values (excluding 0, 1, true, false)*"
     echo ""
     echo "| File | Line | Value |"
     echo "|------|------|-------|"
