@@ -1,27 +1,7 @@
-# Unity Code Review Workflow
-# 
-# This workflow downloads and runs the Unity code review action from:
-# https://internal-git.juegostudio.net/git/UnityProjects/code-review-action
-#
-# To use this workflow in your Unity project:
-# 1. Copy this file to .github/workflows/ in your Unity project repository
-# 2. Ensure you have a TOKEN secret set up with access to the code-review-action repository
-# 3. Make sure your Unity project has C# files in the Assets/ folder
-# 4. The workflow will run on pull requests, pushes to main/master/development, or manual trigger
-#
-# Requirements:
-# - TOKEN secret with access to internal-git.juegostudio.net
-# - Unity project with Assets/**/*.cs files
-# - Internet access to download the code review action
-
-name: Unity Code Review - Sample Project
+name: Unity Code Review
 
 on:
   pull_request:
-    paths:
-      - "Assets/**/*.cs"
-  push:
-    branches: [ "main", "master", "development" ]
     paths:
       - "Assets/**/*.cs"
   workflow_dispatch:
@@ -45,12 +25,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - name: Cache
         uses: actions/cache@v3
         with:
-        path: Library
-        key: Library-${{ gitea.repository }}   
+          path: Library
+          key: Library-${{ github.repository }}   
 
       - name: Get changed files
         id: changed-files
@@ -75,16 +55,16 @@ jobs:
 
       - name: Setup and Prepare Environment
         env:
-          TOKEN: ${{ secrets.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p ./.github/actions/code-review-action
           
-          CODE_REVIEW_REPO="https://internal-git.juegostudio.net/git/UnityProjects/code-review-action"
+          CODE_REVIEW_REPO="https://github.com/kiran-kumar-juego/code-review-action"
           BRANCH="master"
           SUCCESS=false
 
-          if [ "$SUCCESS" = false ] && [ -n "${TOKEN}" ]; then
-            if curl -sL -H "Authorization: token ${TOKEN}" \
+          if [ "$SUCCESS" = false ] && [ -n "${GITHUB_TOKEN}" ]; then
+            if curl -sL -H "Authorization: token ${GITHUB_TOKEN}" \
                  "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action" \
                  -o test-response.json; then
               if grep -q '"name".*"code-review-action"' test-response.json 2>/dev/null; then
@@ -92,8 +72,9 @@ jobs:
                 
                 for endpoint in \
                   "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.tar.gz" \
-                  "https://internal-git.juegostudio.net/git/api/v1/repos/UnityProjects/code-review-action/archive/${BRANCH}.zip"; do
-                  if curl -sL -H "Authorization: token ${TOKEN}" "$endpoint" -o temp-action.archive; then
+                  "https://api.github.com/repos/kiran-kumar-juego/code-review-action/tarball/${BRANCH}" \
+                  "https://api.github.com/repos/kiran-kumar-juego/code-review-action/zipball/${BRANCH}"; do
+                  if curl -sL -H "Authorization: token ${GITHUB_TOKEN}" "$endpoint" -o temp-action.archive; then
                     if [ -s temp-action.archive ] && ! file temp-action.archive | grep -q "JSON\|text"; then
                       SUCCESS=true
                       break
@@ -108,7 +89,7 @@ jobs:
 
           # Check if download succeeded
           if [ "$SUCCESS" = false ]; then
-            echo "All download methods failed. Check repository access and TOKEN permissions."
+            echo "All download methods failed. Check repository access and GITHUB_TOKEN permissions."
             exit 1
           fi
 
@@ -162,7 +143,7 @@ jobs:
         id: analysis
         run: |
           # Set up environment variables
-          export TOKEN="${{ secrets.TOKEN }}"
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           export ANALYZE_ALL_FILES="${{ github.event.inputs.analyze_all_files || 'false' }}"
           export EVENT_NAME="${{ github.event_name }}"
           export CHANGED_FILES="${{ steps.changed-files.outputs.all_changed_files }}"
@@ -215,7 +196,7 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             
@@ -237,8 +218,9 @@ jobs:
 
       - name: Upload Analysis Report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: unity-code-review-report
           path: unity-analysis-report.md
           retention-days: 30
+
